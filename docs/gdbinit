@@ -1,0 +1,48 @@
+# .gdbinit for AVR64DD32 assembly debugging via Bloom over UPDI
+# (AVR64DD32 Curiosity Nano, on-board nEDBG debugger)
+# Source manually: avr-gdb -x .gdbinit program.elf
+# (or whitelist auto-load - see notes below)
+
+# --- connection (adjust port to your Bloom config) ---
+set pagination off
+set confirm off
+target remote :1442          # Bloom default GDB RSP port
+
+# --- breakpoint at reset ---
+# Pure assembly: no main symbol, so break at the reset vector.
+# Stops at the first instruction in Flash before anything executes.
+# If your entry point isn't at 0x0000, break at the label instead:
+#   break *RESET   (or  break *<your_entry_label>)
+break *0
+
+# --- TUI layout on startup ---
+tui enable
+layout asm                   # disassembly window: Flash addresses + instructions
+layout regs                  # stack registers on top of the asm window
+tui reg general              # r0-r31, PC, SP, SREG
+
+# --- auto-refreshing view ---
+display/i $pc                # next instruction to execute, printed each stop
+# display $sreg              # uncomment to watch status flags each step
+
+# --- convenience aliases ---
+define flash
+  # usage: flash ADDR COUNT  -> disassemble COUNT instructions from ADDR
+  x/$arg1i $arg0
+end
+
+define regs
+  info registers
+end
+
+# load                       # uncomment to flash the part from gdb
+
+# --- notes ---
+# Auto-load: modern gdb won't read ./.gdbinit unless the path is whitelisted.
+# Add to ~/.config/gdb/gdbinit:
+#   add-auto-load-safe-path /path/to/your/project
+# Or just source manually:  avr-gdb -x .gdbinit program.elf
+#
+# Build with debug info for source correlation:
+#   avr-gcc -g -mmcu=avr64dd32 program.S -o program.elf
+# With -g you can use `layout split` to see .S source beside disassembly.
