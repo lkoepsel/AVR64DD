@@ -6,7 +6,13 @@
 # --- connection (adjust port to your Bloom config) ---
 set pagination off
 set confirm off
-target remote :1442          # Bloom default GDB RSP port
+set history save on
+set history size 10000
+set history filename ~/.gdb_history
+
+file main.elf
+target remote :1442
+load
 
 # --- breakpoint at reset ---
 # Pure assembly: no main symbol, so break at the reset vector.
@@ -17,13 +23,26 @@ break *0
 
 # --- TUI layout on startup ---
 tui enable
-layout asm                   # disassembly window: Flash addresses + instructions
-layout regs                  # stack registers on top of the asm window
-tui reg general              # r0-r31, PC, SP, SREG
+layout asm                   
+layout regs                  
+# tui reg general            
 
 # --- auto-refreshing view ---
-display/i $pc                # next instruction to execute, printed each stop
-# display $sreg              # uncomment to watch status flags each step
+display/i $pc                
+# display $sreg              
+
+# Rebuild + reload, then redraw the TUI source window.
+define cll
+make
+load
+refresh
+end
+
+# Reset to 00  and run.
+define mrc
+mon reset
+continue
+end
 
 # --- convenience aliases ---
 define flash
@@ -35,14 +54,8 @@ define regs
   info registers
 end
 
-# load                       # uncomment to flash the part from gdb
-
-# --- notes ---
 # Auto-load: modern gdb won't read ./.gdbinit unless the path is whitelisted.
 # Add to ~/.config/gdb/gdbinit:
 #   add-auto-load-safe-path /path/to/your/project
 # Or just source manually:  avr-gdb -x .gdbinit program.elf
 #
-# Build with debug info for source correlation:
-#   avr-gcc -g -mmcu=avr64dd32 program.S -o program.elf
-# With -g you can use `layout split` to see .S source beside disassembly.
