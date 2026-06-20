@@ -3,6 +3,32 @@
 Notes as to developing C and assembly code for the Microchip AVR64DD. 
 ![AVR64DD32_Curiosity_Nano](./AVR64DD32_Curiosity_Nano.pdf)
 
+> **Note:** this README is being rewritten from its ATtiny13A origins to the
+> AVR64DD32. Sections below that still reference the ATtiny13A are pending
+> migration.
+
+## AVR64DD32 Curiosity Nano — Quick Notes
+
+A running scratchpad of board/chip gotchas worth remembering.
+
+### TCA0 (Timer A) PWM output pins
+TCA0's six waveform outputs (WO0–WO5) map to pins 0–5 of whichever port
+`PORTMUX.TCAROUTEA` selects.
+
+- **Default route is PORTA**, so WO0→PA0, WO1→PA1, WO2→PA2. But on the Nano,
+  **PA0/PA1 carry the 24 MHz crystal and are disconnected from the edge
+  connector by default** (to use them as GPIO: cut straps J214/J215 to free the
+  crystal, then bridge solder points J207/J208). So **PA2 is the only directly
+  usable default channel** — no board mods. (See `AVR64DD_examples/asm_blink_pwm`.)
+- **Route TCA0 to PORTD** (`PORTMUX.TCAROUTEA`) to get **WO1/WO2/WO3 on
+  PD1/PD2/PD3**, which are broken out on the header with no modifications —
+  handy when you want multiple PWM channels.
+- **LED0 is on PF5 = WO5**, which is reachable only via TCA0 **Split mode** +
+  PORTMUX routing to PORTF (more involved than the default single-channel path).
+
+Source: board pinout (`documentation/AVR64DD32_Curiosity_Nano.png`) and the
+Curiosity Nano User Guide §4.2.4 (24 MHz crystal).
+
 ## Introduction
 This repository provides example programs in  [*C* (ANSI C99) AVR-LibC](https://github.com/avrdudes/avr-libc) and [*AVR assembly language*](https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf) which support programming the ATtiny13A. In order to use this framework, you need to install the *GNU avr* tool chain appropriate for your computer (*Linux*, *macOS*, or *Windows*). 
 

@@ -17,13 +17,9 @@ __vectors:
 .section .text
 
 reset_handler:                      ; also serves as main_setup
-    ldi     temp_16, hi8(RAMEND)    ; init 16-bit stack pointer
-    out     STACK_HIGH, temp_16
-    ldi     temp_16, lo8(RAMEND)
-    out     STACK_LOW, temp_16
-    eor     r1, r1                  ; r1 = GCC __zero_reg__ convention
-    out     STATUS, r1              ; clear status register
-
+    ; No stack init: on AVR-Dx the hardware points SP at RAMEND at reset, so
+    ; rcall/ret below work without it. (STACK_*/STATUS remain defined in
+    ; registers.S for examples that need them.)
     sbi     PORTF_DIR, LED          ; PF5 as output
 
 main_loop:
