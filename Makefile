@@ -85,10 +85,10 @@ endif
 ## LDFLAGS += -Wl,--relax
 ## LDFLAGS += -Wl,-u,vfprintf -lprintf_flt -lm  ## for floating-point printf
 ## LDFLAGS += -Wl,-u,vfprintf -lprintf_min      ## for smaller printf
-## DEVICE_FLAGS (from env.make) points the stock avr-gcc at the AVR-Dx
-## device pack in packs/ (specs, startup/lib, and io headers). Folded into
-## TARGET_ARCH so every compile/assemble/link rule below picks it up.
-TARGET_ARCH = -mmcu=$(MCU) $(DEVICE_FLAGS)
+## A modern avr-gcc/avr-libc (>= ~14) ships the AVR-Dx device specs, io
+## headers, and libs, so -mmcu=$(MCU) is all that's needed. (Older toolchains
+## that don't know these parts would require an in-repo DFP; not supported.)
+TARGET_ARCH = -mmcu=$(MCU)
 
 ## Explicit pattern rules:
 ##  To make .o files from .c files

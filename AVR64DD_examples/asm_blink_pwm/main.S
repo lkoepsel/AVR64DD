@@ -38,7 +38,7 @@
 ; Microchip's *_gc group constants (e.g. TCA_SINGLE_WGMODE_SINGLESLOPE_gc) are
 ; C enums in <avr/io.h>, and the device header hides all its enum/struct
 ; typedefs behind #if !defined(__ASSEMBLER__). So they are invisible to the
-; assembler whether you use the stock avr-gcc header or the packs/ DFP header.
+; assembler regardless of the avr-gcc/device-header version.
 ; Only the #define macros survive into assembly (register addresses, *_bm,
 ; *_bp, *_gp), so build the multi-bit field from its bit position (*_gp) here.
 #define WGM_SINGLESLOPE  (0x3 << TCA_SINGLE_WGMODE_gp)  // CTRLB: single-slope PWM

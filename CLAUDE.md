@@ -54,12 +54,10 @@ The architecture that needs multiple files to understand:
 - **`env.make` holds the per-machine, per-board knobs** (`MCU`, `F_CPU`,
   `USB_BAUD`, `SERIAL`, `PROGRAMMER_TYPE`, `PROGRAMMER_ARGS`). It is **git-
   ignored** and must exist at the repo root for any build to work. `env.dev` is
-  the tracked template to copy from. The same file has commented-out blocks for
-  switching between the AVR64DD (`pkobn_updi`) and the ATtiny13A
-  (`atmelice_isp`) — uncomment the target you're building for. Per the root
-  Makefile, `env.make` is also where `DEVICE_FLAGS` (pointing avr-gcc at the
-  device pack in `packs/AVR-Dx_DFP`) is expected to live; the committed
-  templates don't set it.
+  the tracked template to copy from; it has commented-out blocks for switching
+  targets/programmers — uncomment the one you're building for. Device support
+  (specs, io headers, libs) comes from a modern avr-gcc/avr-libc that knows the
+  AVR-Dx parts; there is no in-repo device pack.
 
 - **Freestanding vs. C-runtime linking is auto-detected.** If an example has no
   `.c` sources (assembly-only), the Makefile sets `FREESTANDING=1` and links
