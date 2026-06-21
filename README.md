@@ -36,7 +36,102 @@ Example programs live under [`AVR64DD_examples`](./AVR64DD_examples). (The [`ATt
 
 The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = curiosity_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
-For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. See [Using Bloom and avr-gdb](#using-bloom-and-avr-gdb) below.
+For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. For the recommended turnkey setup — Bloom's graphical *Insight* inspector running alongside a scripted *avr-gdb* TUI — see [Debugging the AVR64DD32 with Bloom, avr-gdb and Insight](#debugging-the-avr64dd32-with-bloom-avr-gdb-and-insight) just below. (The older ATtiny13A-oriented notes are under [Using Bloom and avr-gdb](#using-bloom-and-avr-gdb).)
+
+## Debugging the AVR64DD32 with Bloom, avr-gdb and Insight
+
+Two files in this repo give a GUI-like debugging experience for the *AVR64DD32
+Curiosity Nano*: a graphical inspector (**Bloom Insight**) running next to a
+scripted **avr-gdb** TUI, with no external programmer — everything goes through
+the Nano's on-board *nEDBG* debugger over *UPDI*.
+
+- **`bloom.yaml`** (repo root) — configures *Bloom* as the *GDB* server.
+- **`docs/gdbinit_classroom`** — a ready-made *.gdbinit* full of convenience
+  commands; copy it to your home folder as *~/.gdbinit*.
+
+### What `bloom.yaml` does
+
+```yaml
+environments:
+  default:
+    shutdown_post_debug_session: false
+    tool:
+      name: "curiosity_nano"
+    target:
+      name: "avr64dd32"
+      physical_interface: "updi"
+      hardware_breakpoints: true
+    server:
+      name: "avr_gdb_rsp"
+      ip_address: "127.0.0.1"
+      port: 1442
+    insight:
+      activate_on_startup: true
+```
+
+- **`tool` / `target` / `physical_interface: updi`** — drive the on-board nEDBG
+  over UPDI; no external programmer or bootloader.
+- **`hardware_breakpoints: true`** — use the AVR64DD32's hardware breakpoints, so
+  breakpoints work in Flash and assembly (e.g. `break *0` at the reset vector).
+- **`server: avr_gdb_rsp` on `127.0.0.1:1442`** — the GDB RSP server that
+  *avr-gdb* connects to.
+- **`insight: activate_on_startup: true`** — **Bloom Insight**, the graphical
+  front-end, opens automatically with the session, giving live register /
+  peripheral / memory / GPIO views alongside the TUI. This is the "GUI" half of
+  the experience.
+- **`shutdown_post_debug_session: false`** — Bloom keeps running after you quit
+  *avr-gdb* (it returns to waiting for a connection), so you can re-launch
+  *avr-gdb* without restarting Bloom. Press *Ctrl-C* in the Bloom terminal when
+  you are truly done.
+
+### What the classroom `~/.gdbinit` does
+
+It defines convenience commands and prints a banner listing them at startup. Run
+`help user-defined` for the list, or `help <command>` for details on any one.
+
+| Command | Action |
+|---|---|
+| `connect` | Attach to Bloom (`target extended-remote :1442`), set a hardware breakpoint at the reset vector, `load` (flash) the program, and halt at address `0`. Run once, right after *avr-gdb* starts. |
+| `cll` | `make` + `load` + redraw the source window — the edit / compile / reload cycle. |
+| `mrc` | `mon reset` then `continue` — restart the program already in Flash, no rebuild. |
+| `reset-stop` | Reset and **halt** at the vector (robust `tbreak`+`jump` variant) — use when you want to reset and then single-step. |
+| `regs` | Snapshot of working registers r16–r31 plus SREG, SP, PC. |
+| `sreg` | Decode SREG into its flag bits (`I T H S V N Z C`) with a legend. |
+| `layout-class` | Standard TUI view: source + disassembly + register window. |
+
+`connect` deliberately sets the `*0` breakpoint **before** `load`, halting the
+core at the reset vector and sidestepping the second reset GDB issues after a
+load — a clean, predictable start for stepping through assembly.
+
+### Using them
+
+1. **Install the files** (one-time):
+   ```bash
+   cp docs/gdbinit_classroom ~/.gdbinit     # classroom commands
+   # bloom.yaml is already in the repo root
+   ```
+2. **Terminal 1** — start Bloom from the example directory:
+   ```bash
+   cd AVR64DD_examples/asm_blink
+   bloom
+   ```
+   Bloom connects to the Nano, opens the **Insight** GUI, starts the GDB server
+   on port `1442`, and waits for *avr-gdb*.
+3. **Terminal 2** — start the debugger in the *same* directory:
+   ```bash
+   cd AVR64DD_examples/asm_blink
+   avr-gdb main.elf
+   ```
+   The classroom banner lists the available commands.
+4. At the `(gdb)` prompt:
+   ```
+   connect          # flash + halt at the reset vector
+   layout-class     # (optional) source + disasm + registers TUI
+   c                # run;  Ctrl-C to stop
+   ```
+5. Edit your code, then `cll` to rebuild and reload. Use `mrc` to restart, or
+   `reset-stop` to restart and step from the top. The **Insight** window gives
+   live register / peripheral / GPIO inspection while you step.
 
 ## Local Documentation (in the repo folder [documentation](./documentation))
 
@@ -554,54 +649,18 @@ end
 environments:
   default:
     shutdown_post_debug_session: true
-
     tool:
-      name: "xplained_mini"
- 
+      name: "curiosity_nano"
     target:
-      name: "atmega328pb"
-      physical_interface: "debug_wire"
+      name: "avr64dd32"
+      physical_interface: "updi"
       hardware_breakpoints: true
-      manage_dwen_fuse_bit: true
-
     server:
       name: "avr_gdb_rsp"
       ip_address: "127.0.0.1"
       port: 1442
-
-  atmel_ice_13a:
-    shutdown_post_debug_session: true
-
-    tool:
-      name: "atmel_ice"
- 
-    target:
-      name: "attiny13a"
-      physical_interface: "debug_wire"
-      hardware_breakpoints: true
-      manage_dwen_fuse_bit: true
-
-    server:
-      name: "avr_gdb_rsp"
-      ip_address: "127.0.0.1"
-      port: 1442
-
-  snap_13a:
-    shutdown_post_debug_session: true
-
-    tool:
-      name: "snap"
- 
-    target:
-      name: "attiny13a"
-      physical_interface: "debug_wire"
-      hardware_breakpoints: true
-      manage_dwen_fuse_bit: true
-
-    server:
-      name: "avr_gdb_rsp"
-      ip_address: "127.0.0.1"
-      port: 1442
+    insight:
+      activate_on_startup: true
 ```
 
 ### Steps
