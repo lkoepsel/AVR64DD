@@ -50,7 +50,7 @@ reset_handler:
 
     ; --- PA2 defaults as WO2 output, see TCAROUTEA
     ; 1. Set PA2 as output for WO2 waveform
-    sbi     PORTA_DIR, WO2_PIN
+    sbi     VPA_DIR, WO2_PIN
 
     ; --- TCA0 normal (16-bit) single-slope PWM on WO2 ---
     ; 2. load the period (PER)

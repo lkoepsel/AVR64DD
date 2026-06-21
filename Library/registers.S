@@ -5,10 +5,10 @@
 
 ; ---------- Pin / register aliases ----------
 #define LED         5                          // PF5 == LED0 on the Nano
-#define PORTA_DIR   _SFR_IO_ADDR(VPORTA_DIR)   // PORTA data-direction  (0x00)
-#define PORTA_IN    _SFR_IO_ADDR(VPORTA_IN)    // write 1 -> toggle OUT (0x02)
-#define PORTF_DIR   _SFR_IO_ADDR(VPORTF_DIR)   // PORTF data-direction  (0x14)
-#define PORTF_IN    _SFR_IO_ADDR(VPORTF_IN)    // write 1 -> toggle OUT (0x16)
+#define VPA_DIR     _SFR_IO_ADDR(VPORTA_DIR)   // PORTA dir  (VPORT, I/O 0x00)
+#define VPA_IN      _SFR_IO_ADDR(VPORTA_IN)    // write 1 -> toggle OUT (0x02)
+#define VPF_DIR     _SFR_IO_ADDR(VPORTF_DIR)   // PORTF dir  (VPORT, I/O 0x14)
+#define VPF_IN      _SFR_IO_ADDR(VPORTF_IN)    // write 1 -> toggle OUT (0x16)
 #define STACK_LOW   _SFR_IO_ADDR(SPL)
 #define STACK_HIGH  _SFR_IO_ADDR(SPH)
 #define STATUS      _SFR_IO_ADDR(SREG)

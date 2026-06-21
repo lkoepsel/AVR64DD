@@ -17,10 +17,10 @@ __vectors:
 .section .text
 
 reset_handler:                      ; serves as main_setup
-    sbi     PORTF_DIR, LED          ; PF5 as output
+    sbi     VPF_DIR, LED            ; PF5 as output
 
 main_loop:
-    sbi     PORTF_IN, LED           ; toggle PF5
+    sbi     VPF_IN, LED             ; toggle PF5
     rcall   delay_250ms
     rjmp    main_loop
 
