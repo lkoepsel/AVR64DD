@@ -16,10 +16,7 @@ __vectors:
 
 .section .text
 
-reset_handler:                      ; also serves as main_setup
-    ; No stack init: on AVR-Dx the hardware points SP at RAMEND at reset, so
-    ; rcall/ret below work without it. (STACK_*/STATUS remain defined in
-    ; registers.S for examples that need them.)
+reset_handler:                      ; serves as main_setup
     sbi     PORTF_DIR, LED          ; PF5 as output
 
 main_loop:
@@ -29,8 +26,7 @@ main_loop:
 
 ; ---- busy-wait delay, ~250 ms at 4 MHz (≈1,000,000 cycles) ----
 ; Triple-nested dec/brne. Inner iteration is 3 cycles; the constants
-; below give 21 × 250 × 64 × 3 ≈ 1,008,000 cycles ≈ 252 ms. Approximate
-; — fine for a visible blink; use a timer for precise timing.
+; below give 21 × 250 × 64 × 3 ≈ 1,008,000 cycles ≈ 252 ms. 
 delay_250ms:
     ldi     temp_18, 21
 d_outer:
