@@ -157,10 +157,18 @@ class AvrRegs(Dashboard.Module):
         return out
 
 
+# avr-gdb maps the AVR DATA space (SRAM, I/O, peripheral registers) at this
+# offset, separate from program/flash memory (Harvard architecture). Datasheet/
+# io.h peripheral addresses are data-space, so add the offset -- without it you
+# read FLASH at the same number (all 0xFF when that flash is unused).
+_AVR_DATA_OFFSET = 0x800000
+
+
 def _read_mem(addr, width):
-    """Read `width` bytes at target memory `addr`, little-endian. int or None."""
+    """Read `width` bytes from AVR DATA memory at datasheet address `addr`
+    (e.g. 0x0A00), little-endian. Returns int or None."""
     try:
-        buf = bytes(gdb.selected_inferior().read_memory(addr, width))
+        buf = bytes(gdb.selected_inferior().read_memory(_AVR_DATA_OFFSET + addr, width))
         return int.from_bytes(buf, 'little')
     except Exception:
         return None
