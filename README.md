@@ -36,18 +36,16 @@ Example programs live under [`AVR64DD_examples`](./AVR64DD_examples). (The [`ATt
 
 The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = curiosity_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
-For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. For the recommended turnkey setup — Bloom's graphical *Insight* inspector running alongside a scripted *avr-gdb* TUI — see [Debugging the AVR64DD32 with Bloom, avr-gdb and Insight](#debugging-the-avr64dd32-with-bloom-avr-gdb-and-insight) just below. (The older ATtiny13A-oriented notes are under [Using Bloom and avr-gdb](#using-bloom-and-avr-gdb).)
+For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end. (The older ATtiny13A-oriented notes are under [Using Bloom and avr-gdb](#using-bloom-and-avr-gdb).)
 
-## Debugging the AVR64DD32 with Bloom, avr-gdb and Insight
+## Debugging the AVR64DD32 with Bloom and avr-gdb
 
-Two files in this repo give a GUI-like debugging experience for the *AVR64DD32
-Curiosity Nano*: a graphical inspector (**Bloom Insight**) running next to a
-scripted **avr-gdb** TUI, with no external programmer — everything goes through
-the Nano's on-board *nEDBG* debugger over *UPDI*.
-
-- **`bloom.yaml`** (repo root) — configures *Bloom* as the *GDB* server.
-- **`docs/gdbinit_classroom`** — a ready-made *.gdbinit* full of convenience
-  commands; copy it to your home folder as *~/.gdbinit*.
+*Bloom* provides the GDB server for the *AVR64DD32 Curiosity Nano* over the
+Nano's on-board *nEDBG* debugger (*UPDI*) — no external programmer. The repo's
+**`bloom.yaml`** configures it and can open **Bloom Insight** (a Qt GUI) for
+graphical register / peripheral / memory / GPIO inspection on a desktop. For
+the actual debugging session, drive *avr-gdb*; headless setups use
+[gdb-dashboard](./docs/gdb-dashboard.md) instead of Insight.
 
 ### What `bloom.yaml` does
 
@@ -77,8 +75,8 @@ environments:
   *avr-gdb* connects to.
 - **`insight: activate_on_startup: true`** — **Bloom Insight**, the graphical
   front-end, opens automatically with the session, giving live register /
-  peripheral / memory / GPIO views alongside the TUI. This is the "GUI" half of
-  the experience.
+  peripheral / memory / GPIO views (desktop only — Insight is a Qt GUI and
+  won't display over SSH; use gdb-dashboard there).
 - **`shutdown_post_debug_session: false`** — Bloom keeps running after you quit
   *avr-gdb* (it returns to waiting for a connection), so you can re-launch
   *avr-gdb* without restarting Bloom. Press *Ctrl-C* in the Bloom terminal when
@@ -89,54 +87,21 @@ environments:
 > instead — a pure-terminal source / assembly / curated-register view for
 > *avr-gdb*. The ready-made config is in [`docs/dashboard/`](./docs/dashboard).
 
-### What the classroom `~/.gdbinit` does
+### Debugging session
 
-It defines convenience commands and prints a banner listing them at startup. Run
-`help user-defined` for the list, or `help <command>` for details on any one.
+Start Bloom in an example directory, then launch *avr-gdb* — the
+[gdb-dashboard setup](./docs/gdb-dashboard.md) auto-connects and flashes,
+leaving you halted at the reset vector:
 
-| Command | Action |
-|---|---|
-| `connect` | Attach to Bloom (`target extended-remote :1442`), set a hardware breakpoint at the reset vector, `load` (flash) the program, and halt at address `0`. Run once, right after *avr-gdb* starts. |
-| `cll` | `make` + `load` + redraw the source window — the edit / compile / reload cycle. |
-| `mrc` | `mon reset` then `continue` — restart the program already in Flash, no rebuild. |
-| `reset-stop` | Reset and **halt** at the vector (robust `tbreak`+`jump` variant) — use when you want to reset and then single-step. |
-| `regs` | Snapshot of working registers r16–r31 plus SREG, SP, PC. |
-| `sreg` | Decode SREG into its flag bits (`I T H S V N Z C`) with a legend. |
-| `layout-class` | Standard TUI view: source + disassembly + register window. |
+```bash
+# terminal 1
+cd AVR64DD_examples/asm_blink && bloom
+# terminal 2
+cd AVR64DD_examples/asm_blink && avr-gdb
+```
 
-`connect` deliberately sets the `*0` breakpoint **before** `load`, halting the
-core at the reset vector and sidestepping the second reset GDB issues after a
-load — a clean, predictable start for stepping through assembly.
-
-### Using them
-
-1. **Install the files** (one-time):
-   ```bash
-   cp docs/gdbinit_classroom ~/.gdbinit     # classroom commands
-   # bloom.yaml is already in the repo root
-   ```
-2. **Terminal 1** — start Bloom from the example directory:
-   ```bash
-   cd AVR64DD_examples/asm_blink
-   bloom
-   ```
-   Bloom connects to the Nano, opens the **Insight** GUI, starts the GDB server
-   on port `1442`, and waits for *avr-gdb*.
-3. **Terminal 2** — start the debugger in the *same* directory:
-   ```bash
-   cd AVR64DD_examples/asm_blink
-   avr-gdb main.elf
-   ```
-   The classroom banner lists the available commands.
-4. At the `(gdb)` prompt:
-   ```
-   connect          # flash + halt at the reset vector
-   layout-class     # (optional) source + disasm + registers TUI
-   c                # run;  Ctrl-C to stop
-   ```
-5. Edit your code, then `cll` to rebuild and reload. Use `mrc` to restart, or
-   `reset-stop` to restart and step from the top. The **Insight** window gives
-   live register / peripheral / GPIO inspection while you step.
+See [docs/gdb-dashboard.md](./docs/gdb-dashboard.md) for the full headless
+terminal workflow (curated registers, centered disassembly, `mon rr`/`mon wr`).
 
 ## Local Documentation (in the repo folder [documentation](./documentation))
 

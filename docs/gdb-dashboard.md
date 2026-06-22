@@ -46,14 +46,17 @@ PC   = 0x0014
 
 | File | Install to | Purpose |
 |---|---|---|
-| `avr_modules.py`  | `~/.gdbinit.d/` | the `AvrRegs` module (curated regs + SREG + PC) |
-| `avr_layout.gdb`  | `~/.gdbinit.d/` | layout `source assembly avrregs`; shorter source; hide the `?` column |
-| `avr_connect.gdb` | `~/.gdbinit.d/` | the `connect` command (attach + `break *0` + `load`, then a clean redisplay) |
-| `avr_settings.gdb`| `~/.gdbinit.d/` | `set confirm off`, `set listsize 0`, and the auto-load safe-path **(edit the path!)** |
-| `gdbearlyinit`    | `~/.gdbearlyinit` | `set startup-quietly on` — suppresses the gdb version banner |
+| `avr_modules.py`   | `~/.gdbinit.d/` | the `AvrRegs` module (curated regs + SREG + PC) |
+| `avr_layout.gdb`   | `~/.gdbinit.d/` | layout `source assembly avrregs`; shorter source; hide the `?` column |
+| `avr_connect.gdb`  | `~/.gdbinit.d/` | the `connect` command (attach + `break *0` + `load`, then a clean redisplay) |
+| `avr_autostart.py` | `~/.gdbinit.d/` | auto-runs `connect` on startup **if** the cwd has a `main.elf` |
+| `avr_settings.gdb` | `~/.gdbinit.d/` | `set confirm off`, `set listsize 0`, global `~/.gdb_history` |
+| `gdbearlyinit`     | `~/.gdbearlyinit` | `set startup-quietly on` — suppresses the gdb version banner |
 
-Per example, a tiny `.gdbinit` (e.g. `AVR64DD_examples/asm_blink/.gdbinit`)
-does `file main.elf` + `connect` so launching `avr-gdb` auto-connects.
+Auto-connect is **global, not per-directory**: `avr_autostart.py` checks for a
+`main.elf` in the directory you launched gdb from and, if present, runs
+`connect`. Launch `avr-gdb` in any example directory and it attaches + flashes;
+plain `gdb` anywhere else is untouched. No per-example `.gdbinit` files.
 
 ## Install
 
@@ -66,14 +69,13 @@ does `file main.elf` + `connect` so launching `avr-gdb` auto-connects.
 2. **Copy the AVR files:**
    ```sh
    mkdir -p ~/.gdbinit.d
-   cp docs/dashboard/avr_modules.py  ~/.gdbinit.d/
-   cp docs/dashboard/avr_layout.gdb  ~/.gdbinit.d/
-   cp docs/dashboard/avr_connect.gdb ~/.gdbinit.d/
+   cp docs/dashboard/avr_modules.py   ~/.gdbinit.d/
+   cp docs/dashboard/avr_layout.gdb   ~/.gdbinit.d/
+   cp docs/dashboard/avr_connect.gdb  ~/.gdbinit.d/
+   cp docs/dashboard/avr_autostart.py ~/.gdbinit.d/
    cp docs/dashboard/avr_settings.gdb ~/.gdbinit.d/
-   cp docs/dashboard/gdbearlyinit    ~/.gdbearlyinit
+   cp docs/dashboard/gdbearlyinit     ~/.gdbearlyinit
    ```
-3. **Edit the safe-path** in `~/.gdbinit.d/avr_settings.gdb` to your clone's
-   absolute path (the `add-auto-load-safe-path` line).
 
 `~/.gdbinit.d/` is auto-sourced by gdb-dashboard: `.py` files load as Python
 modules, everything else as GDB scripts.
@@ -104,7 +106,9 @@ cd AVR64DD_examples/asm_blink && avr-gdb
    program uses.
 2. In the program's `main.S`, give each routine `.type ...,@function` and
    `.size ...` so the Assembly pane centers and shows names.
-3. Drop a `.gdbinit` (`file main.elf` + `connect`) in that example's directory.
+
+Nothing else: auto-connect is global, so `avr-gdb` in any directory that has a
+`main.elf` attaches automatically.
 
 > **Note:** gdb-dashboard and gdb's built-in **TUI** are mutually exclusive —
 > enabling TUI (`tui enable` / `layout`) fights the dashboard for the screen and

@@ -22,5 +22,6 @@ env.make
 ~*
 bloom.yaml
 .gdbinit
+.gdb_history
 *.stc
 .clangd

@@ -7,10 +7,10 @@
 # Don't prompt on `q`, symbol reloads, etc.
 set confirm off
 
-# Match the old classroom .gdbinit.
 set listsize 0
 
-# Allow per-project ./.gdbinit files under the repo to auto-load (used for the
-# per-example auto-connect). gdb otherwise refuses CWD init files for safety.
-# !! CHANGE this to the absolute path of YOUR clone of this repo !!
-add-auto-load-safe-path /home/lkoepsel/Documents/AVR64DD
+# Keep command history in ONE global file (~/.gdb_history) instead of letting
+# gdb drop a .gdb_history in every directory you debug from.
+set history save on
+set history size 10000
+set history filename ~/.gdb_history
