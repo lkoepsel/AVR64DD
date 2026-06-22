@@ -6,18 +6,19 @@
 #  the dashboard core but before the GDB-init pass). Requires gdb-dashboard
 #  installed as ~/.gdbinit.
 #
-#  Provides one module:
-#    AvrRegs  -- a CURATED subset of working registers + decoded SREG + PC,
-#                instead of the built-in `registers` module's full 32-reg dump.
-#                Reads live target state over GDB's remote protocol to Bloom;
-#                pure terminal, works headless over SSH (no Insight / Qt).
+#  Provides two modules:
+#    AvrRegs        -- a CURATED subset of working registers + decoded SREG + PC,
+#                      instead of the built-in `registers` module's 32-reg dump.
+#    AvrPeripheral  -- selected memory-mapped peripheral registers (e.g. TCA0),
+#                      the headless equivalent of Insight's peripheral pane.
+#  Both read live target state over GDB's remote protocol to Bloom; pure
+#  terminal, works headless over SSH (no Insight / Qt).
 #
-#  The companion file  ~/.gdbinit.d/avr_layout.gdb  picks the dashboard layout
-#  (source + assembly + avrregs) and hides the built-in modules.
-#
-#  Module name (for layout/toggle) is the lowercased class name: `avrregs`.
-#    dashboard -layout source assembly avrregs
-#    dashboard avrregs            (toggle visibility)
+#  Module names (for layout/toggle) are the lowercased class names:
+#    dashboard -layout source assembly avrregs avrperipheral
+#    dashboard avrregs / dashboard avrperipheral   (toggle visibility)
+#  avr_layout.gdb auto-adds avrperipheral to the layout when an example defines
+#  AVR_PERIPHERALS (in its avr_dashboard.py).
 # ============================================================================
 
 # ----------------------------------------------------------------------------
@@ -36,10 +37,19 @@ AVR_REG_PAIRS = []
 # How many working registers to pack per row.
 REGS_PER_ROW = 4
 
+# Memory-mapped peripheral registers to show: (name, address, width_bytes).
+# Empty by default; an example's avr_dashboard.py fills this in (e.g. TCA0).
+AVR_PERIPHERALS = []
+
+# Optional per-bit decode for 1-byte peripheral registers, keyed by the name
+# used in AVR_PERIPHERALS:  {name: [(bit_position, "FLAG"), ...]}.
+AVR_BITFIELDS = {}
+
 
 # ----------------------------------------------------------------------------
 #  Per-example override: if the launch directory contains an `avr_dashboard.py`,
-#  run it and adopt any of AVR_REG_SET / AVR_REG_PAIRS / REGS_PER_ROW it defines.
+#  run it and adopt any of AVR_REG_SET / AVR_REG_PAIRS / REGS_PER_ROW /
+#  AVR_PERIPHERALS / AVR_BITFIELDS it defines.
 #  This keeps the register selection tracked next to each example's source.
 #  (The file is executed as Python, like a local ./.gdbinit -- only launch
 #  avr-gdb in directories you trust.)
@@ -59,9 +69,12 @@ def _load_example_overrides():
         gdb.write('[avr_dashboard.py] {}\n'.format(e))
         return
     global AVR_REG_SET, AVR_REG_PAIRS, REGS_PER_ROW
+    global AVR_PERIPHERALS, AVR_BITFIELDS
     AVR_REG_SET = ns.get('AVR_REG_SET', AVR_REG_SET)
     AVR_REG_PAIRS = ns.get('AVR_REG_PAIRS', AVR_REG_PAIRS)
     REGS_PER_ROW = ns.get('REGS_PER_ROW', REGS_PER_ROW)
+    AVR_PERIPHERALS = ns.get('AVR_PERIPHERALS', AVR_PERIPHERALS)
+    AVR_BITFIELDS = ns.get('AVR_BITFIELDS', AVR_BITFIELDS)
 
 
 _load_example_overrides()
@@ -141,4 +154,57 @@ class AvrRegs(Dashboard.Module):
         except Exception:
             pass
 
+        return out
+
+
+def _read_mem(addr, width):
+    """Read `width` bytes at target memory `addr`, little-endian. int or None."""
+    try:
+        buf = bytes(gdb.selected_inferior().read_memory(addr, width))
+        return int.from_bytes(buf, 'little')
+    except Exception:
+        return None
+
+
+class AvrPeripheral(Dashboard.Module):
+    """AVR memory-mapped peripheral registers (per example).
+
+    Reads the registers listed in AVR_PERIPHERALS (set by the example's
+    avr_dashboard.py) straight from target memory over Bloom -- the headless
+    equivalent of Insight's peripheral pane. Optional per-bit decode via
+    AVR_BITFIELDS."""
+
+    def label(self):
+        return 'AVR Peripherals'
+
+    def lines(self, term_width, term_height, style_changed):
+        if not AVR_PERIPHERALS:
+            return []
+        # No inferior (not connected) -> empty; divider greys out.
+        try:
+            gdb.selected_inferior()
+        except Exception:
+            return []
+
+        namew = max(len(p[0]) for p in AVR_PERIPHERALS)
+        out = []
+        for name, addr, width in AVR_PERIPHERALS:
+            v = _read_mem(addr, width)
+            if v is None:
+                valstr = '??'
+            elif width == 1:
+                valstr = '0x{:02X}'.format(v)
+            elif width == 2:
+                valstr = '0x{:04X} ({:>5})'.format(v, v)
+            else:
+                valstr = '0x{:0{w}X}'.format(v, w=width * 2)
+
+            line = '{:<{nw}} @0x{:04X} = {}'.format(name, addr, valstr, nw=namew)
+
+            bits = AVR_BITFIELDS.get(name)
+            if v is not None and width == 1 and bits:
+                decoded = ' '.join(fn if (v & (1 << bp)) else fn.lower()
+                                   for bp, fn in bits)
+                line += '  [ {} ]'.format(decoded)
+            out.append(line)
         return out

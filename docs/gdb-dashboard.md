@@ -29,6 +29,12 @@ PC   = 0x0014
   disassembly — the AVR hardware PC is a *word* address, so they would
   otherwise disagree by 2×). The register set is chosen **per example**: drop an
   `avr_dashboard.py` next to the program's `main.S` (see below).
+- **Peripheral pane (per example).** A second module (`AvrPeripheral`) shows
+  selected memory-mapped peripheral registers — the headless equivalent of
+  Insight's peripheral view. An example lists them in its `avr_dashboard.py`
+  (`AVR_PERIPHERALS`); the pane is added to the layout **only** when an example
+  defines them (e.g. `asm_blink_pwm` shows TCA0's CTRLA/CTRLB/CNT/PER/CMP2). One
+  byte registers can be bit-decoded via `AVR_BITFIELDS`.
 - **SREG name gotcha.** gdb's register is `SREG` (uppercase, case-sensitive);
   `sreg`/`$sreg` silently fail. The module reads `SREG`.
 - **Assembly centering needs function symbols.** gdb-dashboard centers the
@@ -116,6 +122,26 @@ cd AVR64DD_examples/asm_blink && avr-gdb
    REGS_PER_ROW  = 4
    ```
    With no `avr_dashboard.py`, the defaults in `~/.gdbinit.d/avr_modules.py` apply.
+
+   To also show **peripheral registers**, add `AVR_PERIPHERALS` (and optionally
+   `AVR_BITFIELDS`) — the peripheral pane then appears automatically. For
+   example (`AVR64DD_examples/asm_blink_pwm/avr_dashboard.py`, TCA0 PWM):
+   ```python
+   #                name           addr     width
+   AVR_PERIPHERALS = [
+       ("TCA0.CTRLA",  0x0A00,  1),
+       ("TCA0.CTRLB",  0x0A01,  1),
+       ("TCA0.CNT",    0x0A20,  2),   # live counter
+       ("TCA0.PER",    0x0A26,  2),   # period -> frequency
+       ("TCA0.CMP2",   0x0A2C,  2),   # compare -> duty on WO2
+   ]
+   AVR_BITFIELDS = {                  # per-bit decode for 1-byte regs
+       "TCA0.CTRLA": [(0, "ENABLE")],
+       "TCA0.CTRLB": [(6, "CMP2EN"), (5, "CMP1EN"), (4, "CMP0EN")],
+   }
+   ```
+   Addresses come from `/usr/avr/include/avr/ioavr64dd32.h` (the `_SFR_MEM*`
+   macros) or the datasheet register map — verify them per peripheral.
 2. In the program's `main.S`, give each routine `.type ...,@function` and
    `.size ...` so the Assembly pane centers and shows names.
 
