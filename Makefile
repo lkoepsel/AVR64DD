@@ -73,6 +73,11 @@ ifeq ($(FREESTANDING),1)
 ## Freestanding (assembly) link: no C runtime, no startup files. The example's
 ## own main.S provides the vector table and reset handler (was Makefile.asm).
 LDFLAGS = -nostartfiles -nostdlib
+## The C runtime carries the .note.gnu.avr.deviceinfo section (flash/RAM sizes
+## and device name) that `objdump -Pmem-usage` and debuggers read. Freestanding
+## links drop it, so extract just that note from the device's crt and link it
+## back in -- it is not loadable, so the flashed .hex is unchanged.
+DEVICEINFO_CRT := $(shell $(CC) -mmcu=$(MCU) -print-file-name=crt$(MCU).o)
 else
 LDFLAGS = -Wl,-Map,$(TARGET).map
 ## Optional, but often ends up with smaller code
@@ -100,8 +105,18 @@ TARGET_ARCH = -mmcu=$(MCU)
 %.o: %.S Makefile
 	$(CC) $(CPPFLAGS) $(TARGET_ARCH) -g -Wa,--gdwarf-2 -MMD -MP -c -o $@ $<
 
+## For freestanding builds, extract the device-info note from the device's crt
+## and link it in (so the ELF advertises its device for objdump/size/debuggers).
+## Done inside this recipe rather than as a separate prerequisite, so GNU Make
+## 4.4 doesn't classify the generated object as an intermediate and delete it
+## mid-build. The note isn't loadable, so the flashed .hex is unchanged.
 $(TARGET).elf: $(OBJECTS)
-	$(CC) $(LDFLAGS) $(TARGET_ARCH) $^ $(LDLIBS) -o $@
+ifeq ($(FREESTANDING),1)
+	$(OBJCOPY) -j .note.gnu.avr.deviceinfo $(DEVICEINFO_CRT) deviceinfo.o
+	$(CC) $(LDFLAGS) $(TARGET_ARCH) $(OBJECTS) deviceinfo.o $(LDLIBS) -o $@
+else
+	$(CC) $(LDFLAGS) $(TARGET_ARCH) $(OBJECTS) $(LDLIBS) -o $@
+endif
 
 %.hex: %.elf
 	 $(OBJCOPY) -j .text -j .data -O ihex $< $@
@@ -162,16 +177,13 @@ disassemble: $(TARGET).lst
 
 disasm: disassemble
 
-# Optionally show how big the resulting program is
-## Freestanding (hand-assembled) ELFs lack the .note.gnu.avr.deviceinfo
-## section, so objdump -Pmem-usage reports "Device: Unknown"; avr-size -C
-## knows the device itself. Runtime builds keep the richer mem-usage report.
+# Optionally show how big the resulting program is.
+## Both link models now carry the .note.gnu.avr.deviceinfo section (runtime from
+## the crt, freestanding from the note extracted above), so objdump's mem-usage
+## report knows the device and prints "% Full". (The old freestanding path,
+## avr-size -C --mcu, has no AVR-Dx parts in its device table -> "Unknown".)
 size:  $(TARGET).elf
-ifeq ($(FREESTANDING),1)
-	$(AVRSIZE) -C --mcu=$(MCU) $(TARGET).elf
-else
 	$(OBJDUMP) -Pmem-usage $(TARGET).elf
-endif
 clean:
 	rm -f $(TARGET).elf $(TARGET).hex $(TARGET).obj \
 	$(TARGET).o $(TARGET).d $(TARGET).eep $(TARGET).lst \
