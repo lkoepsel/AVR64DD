@@ -27,8 +27,8 @@ PC   = 0x0014
   only the registers a given program uses, plus a **decoded SREG** (`I T H S V
   N Z C`, uppercase = set) and the **PC as a byte address** (matching the
   disassembly — the AVR hardware PC is a *word* address, so they would
-  otherwise disagree by 2×). Edit `AVR_REG_SET` at the top of `avr_modules.py`
-  per program.
+  otherwise disagree by 2×). The register set is chosen **per example**: drop an
+  `avr_dashboard.py` next to the program's `main.S` (see below).
 - **SREG name gotcha.** gdb's register is `SREG` (uppercase, case-sensitive);
   `sreg`/`$sreg` silently fail. The module reads `SREG`.
 - **Assembly centering needs function symbols.** gdb-dashboard centers the
@@ -102,8 +102,16 @@ cd AVR64DD_examples/asm_blink && avr-gdb
 
 ## Adapting to another program
 
-1. Set `AVR_REG_SET` in `~/.gdbinit.d/avr_modules.py` to the registers that
-   program uses.
+1. Drop an **`avr_dashboard.py`** next to the program's `main.S` choosing the
+   registers to show — it's read automatically when you launch `avr-gdb` in that
+   directory, and is tracked in the repo per example. For example
+   (`AVR64DD_examples/asm_blink/avr_dashboard.py`):
+   ```python
+   AVR_REG_SET   = ["r18", "r19", "r20"]   # in display order
+   AVR_REG_PAIRS = []                       # e.g. [("r30", "r31", "Z")] for Z
+   REGS_PER_ROW  = 4
+   ```
+   With no `avr_dashboard.py`, the defaults in `~/.gdbinit.d/avr_modules.py` apply.
 2. In the program's `main.S`, give each routine `.type ...,@function` and
    `.size ...` so the Assembly pane centers and shows names.
 

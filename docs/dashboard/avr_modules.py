@@ -21,18 +21,50 @@
 # ============================================================================
 
 # ----------------------------------------------------------------------------
-#  EDIT HERE: which working registers to show, in display order.
-#  For asm_blink this is just the delay-loop temporaries r18/r19/r20
-#  (temp_18 / temp_19 / temp_20 in Library/registers.S).
+#  DEFAULTS. These are usually overridden PER EXAMPLE by an `avr_dashboard.py`
+#  in the directory you launch avr-gdb from (loaded just below). Put the
+#  per-example file alongside each program's main.S and track it in the repo;
+#  edit this block only to change the fallback used when no such file exists.
 # ----------------------------------------------------------------------------
-AVR_REG_SET = ["r18", "r19", "r20"]
+# Working registers to show, in display order.
+AVR_REG_SET = ["r24", "r25"]
 
 # 16-bit pointer pairs to show as one combined value: (low, high, label).
-# Empty for asm_blink (no X/Y/Z use). For later, e.g.:  [("r30", "r31", "Z")]
+# e.g.  [("r30", "r31", "Z")]
 AVR_REG_PAIRS = []
 
 # How many working registers to pack per row.
 REGS_PER_ROW = 4
+
+
+# ----------------------------------------------------------------------------
+#  Per-example override: if the launch directory contains an `avr_dashboard.py`,
+#  run it and adopt any of AVR_REG_SET / AVR_REG_PAIRS / REGS_PER_ROW it defines.
+#  This keeps the register selection tracked next to each example's source.
+#  (The file is executed as Python, like a local ./.gdbinit -- only launch
+#  avr-gdb in directories you trust.)
+# ----------------------------------------------------------------------------
+import os
+
+
+def _load_example_overrides():
+    path = os.path.join(os.getcwd(), 'avr_dashboard.py')
+    if not os.path.exists(path):
+        return
+    ns = {}
+    try:
+        with open(path) as f:
+            exec(f.read(), ns)
+    except Exception as e:
+        gdb.write('[avr_dashboard.py] {}\n'.format(e))
+        return
+    global AVR_REG_SET, AVR_REG_PAIRS, REGS_PER_ROW
+    AVR_REG_SET = ns.get('AVR_REG_SET', AVR_REG_SET)
+    AVR_REG_PAIRS = ns.get('AVR_REG_PAIRS', AVR_REG_PAIRS)
+    REGS_PER_ROW = ns.get('REGS_PER_ROW', REGS_PER_ROW)
+
+
+_load_example_overrides()
 
 
 def _read_reg(name):
@@ -54,7 +86,8 @@ def _read_reg(name):
 class AvrRegs(Dashboard.Module):
     """Curated AVR working registers plus a decoded SREG and PC.
 
-    Shows only the subset in AVR_REG_SET / AVR_REG_PAIRS (edit at the top of
+    Shows only the subset in AVR_REG_SET / AVR_REG_PAIRS (set per example by an
+    avr_dashboard.py in the launch directory, else the defaults at the top of
     ~/.gdbinit.d/avr_modules.py) rather than all 32 GP registers, to keep the
     headless dashboard readable."""
 
