@@ -4,11 +4,11 @@
 
 # Working registers to show, in display order. asm_blink's delay loop uses the
 # temporaries r18/r19/r20 (temp_18 / temp_19 / temp_20 in Library/registers.S).
-AVR_REG_SET = ["r20", "r21", "r22"]
+AVR_REG_SET = ["r4", "r6", "r7", "r16"]
 
 # 16-bit pointer pairs to show as one combined value: (low, high, label).
 # Empty for asm_blink (no X/Y/Z use). For later, e.g.:  [("r30", "r31", "Z")]
-AVR_REG_PAIRS = []
+AVR_REG_PAIRS = [("r30", "r31", "Z")]
 
 # How many working registers to pack per row.
 REGS_PER_ROW = 4

@@ -31,17 +31,17 @@ main_loop:
 ; below give 21 × 250 × 64 × 3 ≈ 1,008,000 cycles ≈ 252 ms. 
 .type   delay_250ms, @function
 delay_250ms:
-    ldi     temp_18, 21
+    ldi     temp_20, 21
 d_outer:
-    ldi     temp_19, 250
+    ldi     temp_21, 250
 d_mid:
-    ldi     temp_20, 64
+    ldi     temp_22, 64
 d_inner:
-    dec     temp_20
+    dec     temp_22
     brne    d_inner
-    dec     temp_19
+    dec     temp_21
     brne    d_mid
-    dec     temp_18
+    dec     temp_20
     brne    d_outer
     ret
 .size   delay_250ms, .-delay_250ms
