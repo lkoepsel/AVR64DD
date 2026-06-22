@@ -72,8 +72,8 @@
 ;     grep TCA0_OVF_vect /path/to/ioavr64dd32.h
 ;  The macro expands to something like _VECTOR(8); use that number here.
 ; --------------------------------------------------------------------
-.global __vector_8
-__vector_8:
+.global __vector_9
+__vector_9:
 TCA0_OVF_handler:
     in      ISR_temp, CPU_SREG          ; save status flags
     ; --- clear the OVF interrupt flag by writing 1 to it ---
