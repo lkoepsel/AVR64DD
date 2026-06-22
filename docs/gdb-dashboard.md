@@ -49,6 +49,7 @@ PC   = 0x0014
 | `avr_modules.py`   | `~/.gdbinit.d/` | the `AvrRegs` module (curated regs + SREG + PC) |
 | `avr_layout.gdb`   | `~/.gdbinit.d/` | layout `source assembly avrregs`; shorter source; hide the `?` column |
 | `avr_connect.gdb`  | `~/.gdbinit.d/` | the `connect` command (attach + `break *0` + `load`, then a clean redisplay) |
+| `avr_commands.gdb` | `~/.gdbinit.d/` | convenience commands: `cll` (rebuild + reload + list), `mrc` (reset + run) |
 | `avr_autostart.py` | `~/.gdbinit.d/` | auto-runs `connect` on startup **if** the cwd has a `main.elf` |
 | `avr_settings.gdb` | `~/.gdbinit.d/` | `set confirm off`, `set listsize 0`, global `~/.gdb_history` |
 | `gdbearlyinit`     | `~/.gdbearlyinit` | `set startup-quietly on` — suppresses the gdb version banner |
@@ -72,6 +73,7 @@ plain `gdb` anywhere else is untouched. No per-example `.gdbinit` files.
    cp docs/dashboard/avr_modules.py   ~/.gdbinit.d/
    cp docs/dashboard/avr_layout.gdb   ~/.gdbinit.d/
    cp docs/dashboard/avr_connect.gdb  ~/.gdbinit.d/
+   cp docs/dashboard/avr_commands.gdb ~/.gdbinit.d/
    cp docs/dashboard/avr_autostart.py ~/.gdbinit.d/
    cp docs/dashboard/avr_settings.gdb ~/.gdbinit.d/
    cp docs/dashboard/gdbearlyinit     ~/.gdbearlyinit
@@ -96,6 +98,8 @@ cd AVR64DD_examples/asm_blink && avr-gdb
 ```
 
 - `connect` — re-run the attach/flash/redisplay by hand if needed.
+- `cll` — rebuild (`make`), reload onto the target, and list source.
+- `mrc` — reset to the vector and run (`mon reset` + `continue`).
 - `mon reset` — reset the core to the vector.
 - `dashboard -layout source assembly avrregs` — change which panes show.
 - `dashboard avrregs` — toggle a pane.
