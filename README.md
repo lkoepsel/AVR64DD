@@ -84,6 +84,11 @@ environments:
   *avr-gdb* without restarting Bloom. Press *Ctrl-C* in the Bloom terminal when
   you are truly done.
 
+> **Headless / SSH (e.g. a Raspberry Pi dev host)?** Insight is a Qt GUI and
+> can't display over SSH. Use [**gdb-dashboard**](./docs/gdb-dashboard.md)
+> instead — a pure-terminal source / assembly / curated-register view for
+> *avr-gdb*. The ready-made config is in [`docs/dashboard/`](./docs/dashboard).
+
 ### What the classroom `~/.gdbinit` does
 
 It defines convenience commands and prints a banner listing them at startup. Run
@@ -190,6 +195,9 @@ If you want to use a Raspberry Pi (3/4/5) as a C development platform, this page
 
 #### [bloom and gdb.md](./docs/bloomandgdb.md)
 Given the ATtiny13A requires a hardware interface to load software, I recommend using *bloom* as the interface to avr-gdb. This provides loading and debugging capability, which is required to be successful. 
+
+#### [gdb-dashboard.md](./docs/gdb-dashboard.md)
+Headless terminal debugging for the AVR64DD32 with *gdb-dashboard* + *Bloom* — the SSH/Raspberry-Pi alternative to Bloom Insight. Curated AVR register view, centered disassembly, auto-connect. Config files in [`docs/dashboard/`](./docs/dashboard).
 
 ## Steps to Use
 1. Install the AVR toolchain which consists of *avr-gcc*, *avr-gdb*, and *avrdude* as well as *make* and *git*. A **great** method is to use a [Raspberry Pi as your development platform.](./docs/RPi_build.md). If you wish to use *Windows* or *macOS*, some instruction is provided [here](https://www.wellys.com/posts/avr_c_setup/).

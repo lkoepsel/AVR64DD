@@ -1,0 +1,3 @@
+# gdb early-init (read before the version banner and before ~/.gdbinit).
+# Suppress the GNU gdb version/copyright banner for a clean dashboard startup.
+set startup-quietly on
