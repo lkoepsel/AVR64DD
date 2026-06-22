@@ -8,11 +8,18 @@
 #  listed, in order. Listing just these three hides the built-in `registers`
 #  module (the full 32-register dump) and everything else.
 #
-#    source    -- the main.S source window (built from -g/-gdwarf-2)
-#    assembly  -- live disassembly with the PC marker
-#    avrregs   -- curated r18/r19/r20 + decoded SREG + PC (avr_modules.py)
+#    source         -- the main.S source window (built from -g/-gdwarf-2)
+#    assembly       -- live disassembly with the PC marker
+#    avrregs        -- curated working regs + decoded SREG + PC (avr_modules.py)
+#    avrperipheral  -- added only when the example's avr_dashboard.py defines
+#                      AVR_PERIPHERALS (e.g. TCA0 for asm_blink_pwm)
 # ============================================================================
-dashboard -layout source assembly avrregs
+python
+_layout = ['source', 'assembly', 'avrregs']
+if AVR_PERIPHERALS:
+    _layout.append('avrperipheral')
+gdb.execute('dashboard -layout ' + ' '.join(_layout))
+end
 
 # Shorter source panel (default is 10 lines). Tweak to taste.
 dashboard source -style height 12
