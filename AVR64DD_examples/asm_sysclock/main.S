@@ -6,7 +6,7 @@
 
 #include <avr/io.h>
 #include "registers.S"
-#include "serial.S"
+#include "serial_dd32.S"
 #include "sysclock.S"
 
 ; ====================================================================

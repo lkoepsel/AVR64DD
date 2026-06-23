@@ -1,9 +1,9 @@
 ; ====================================================================
 ;  serial_dd32
 ;       init_serial   - configure USART0 on the Curiosity Nano CDC pins
-;       tx_char       - transmit one byte (in r24), blocking
-;       tx_string     - transmit a zero-terminated string (Z -> flash)
-;       rx_char       - receive one byte (returns in r24), blocking
+;       char_write       - transmit one byte (in r24), blocking
+;       flash_write     - transmit a zero-terminated string (Z -> flash)
+;       char_read       - receive one byte (returns in r24), blocking
 ; Target : AVR64DD32 (Curiosity Nano)
 ; Clock  : see F_CPU note below -- baud value depends on it
 ; Toolchain: avr-as / avr-ld  (GNU Binutils for AVR)
@@ -40,7 +40,7 @@
 ; ---------- Registers and Values ----------------
 ; r24                           ; char register - byte to send / received byte
 ; r16                           ; temp register - scratch
-; Z (r31:r30)                   ; flash pointer for tx_string
+; Z (r31:r30)                   ; flash pointer for flash_write
 
 ; --------------------------------------------------------------------
 ;  init_serial - set up USART0 on PD4/PD5 via PORTMUX, 8N1, TX+RX enabled
@@ -73,10 +73,10 @@ init_serial:
     ret
 
 ; --------------------------------------------------------------------
-;  tx_char - send the byte in r24, waiting until the data register is free
+;  char_write - send the byte in r24, waiting until the data register is free
 ; --------------------------------------------------------------------
-.global tx_char
-tx_char:
+.global char_write
+char_write:
     ; --- wait for DREIF (data register empty) in USART0.STATUS ---
 1:
     lds     r16, USART0_STATUS
@@ -87,25 +87,25 @@ tx_char:
     ret
 
 ; --------------------------------------------------------------------
-;  tx_string - send a zero-terminated string from FLASH (Z points to it)
+;  flash_write - send a zero-terminated string from FLASH (Z points to it)
 ;              Uses lpm with post-increment, like the tiny13 LPM pattern.
 ; --------------------------------------------------------------------
-.global tx_string
-tx_string:
+.global flash_write
+flash_write:
 1:
     lpm     r24, Z+                 ; load next char from flash, advance Z
     cpi     r24, 0                  ; null terminator?
     breq    2f                      ; yes -> done
-    rcall   tx_char                 ; no  -> send it
+    rcall   char_write                 ; no  -> send it
     rjmp    1b
 2:
     ret
 
 ; --------------------------------------------------------------------
-;  rx_char - block until a byte arrives, return it in r24
+;  char_read - block until a byte arrives, return it in r24
 ; --------------------------------------------------------------------
-.global rx_char
-rx_char:
+.global char_read
+char_read:
     ; --- wait for RXCIF (receive complete) in USART0.STATUS ---
 1:
     lds     r16, USART0_STATUS
