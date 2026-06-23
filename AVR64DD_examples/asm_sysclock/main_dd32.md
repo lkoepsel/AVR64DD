@@ -48,13 +48,6 @@ __bad_interrupt:
 ; --------------------------------------------------------------------
 .global reset
 reset:
-    ; --- set up the stack pointer to top of SRAM ---
-    ;     RAMEND is provided by <avr/io.h> for the AVR64DD32.
-    ldi     r16, lo8(RAMEND)
-    out     CPU_SPL, r16
-    ldi     r16, hi8(RAMEND)
-    out     CPU_SPH, r16
-
     ; --- start the 1 ms system clock (sets up TCA0, enables OVF, sei) ---
     rcall   init_sysclock_1k
 
