@@ -65,12 +65,11 @@
 
 ; --------------------------------------------------------------------
 ;  TCA0 overflow ISR.
-;  __vector_8 overrides the CRT's weak symbol for TCA0_OVF_vect (C builds).
+;  __vector_9 overrides the CRT's weak symbol for TCA0_OVF_vect (C builds).
 ;  TCA0_OVF_handler is kept as an alias so pure-asm vector tables still link.
 ;
-;  IMPORTANT: confirm the vector NUMBER for TCA0_OVF on the AVR64DD32:
-;     grep TCA0_OVF_vect /path/to/ioavr64dd32.h
-;  The macro expands to something like _VECTOR(8); use that number here.
+;  Confirmed: TCA0_OVF_vect = _VECTOR(9), table byte address 0x12
+;  (vector 9 * 2 bytes per rjmp slot = 0x12).
 ; --------------------------------------------------------------------
 .global __vector_9
 __vector_9:

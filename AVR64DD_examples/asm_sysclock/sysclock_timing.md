@@ -1,4 +1,4 @@
-# Claude analysis of sysclock timing loop
+# Claude analysis of sysclock timing loop (orginally for ATtiny13A)
 
 * Count = 30,000 => ~100 ms window
 * OCR0A = 0x95 or 149
@@ -7,8 +7,7 @@
 Result = 0x65 or 101
 
 The ISR uses `r2` as a dedicated scratch register (reserved globally — see the
-register notes at the top of `main.S`), so it needs no `push`/`pop`. That keeps
-the per-interrupt overhead to 15 cycles.
+register notes at the top of `main.S`), so it needs no `push`/`pop`. That keeps the per-interrupt overhead to 15 cycles.
 
 ## Analysis
 
@@ -23,7 +22,7 @@ Confirmed — 0x65 (101) is the right number. Here's why it's 101 and not the "o
   ├─────────────────────────┼─────────────────────────────┤
   │ CTC TOP period          │ 1 + 149 = 150 timer counts  │
   ├─────────────────────────┼─────────────────────────────┤
-  │ Prescaler (CS01)        │ ÷8                          │
+  │ Prescaler (CS01)        │ /8                          │
   ├─────────────────────────┼─────────────────────────────┤
   │ CPU cycles per tick     │ 150 × 8 = 1200              │
   ├─────────────────────────┼─────────────────────────────┤
