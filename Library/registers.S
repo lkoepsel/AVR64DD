@@ -17,6 +17,7 @@
 
 #define ticks_lo    r8                          // used in sys_clock ISR for ticks
 #define ticks_hi    r9                          // used in sys_clock ISR for ticks
+#define char_reg    r24                         // serial: byte to send / received
 #define temp_16    r16
 #define temp_17    r17
 #define delay_18   r18

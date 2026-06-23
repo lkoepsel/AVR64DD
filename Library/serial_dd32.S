@@ -30,7 +30,7 @@
 ;
 ;  Defaults below: 4 MHz / 9600 baud. Change BAUD_VAL to match your setup.
 ; --------------------------------------------------------------------
-#define BAUD_VAL  1667        ; 4 MHz, 9600 baud
+#define BAUD_VAL  1667        // 4 MHz, 9600 baud  (cpp keeps ';' in a #define, so use //)
 
 ; ====================================================================
 ;  TEXT SECTION
@@ -48,10 +48,11 @@
 .global init_serial
 init_serial:
     ; --- 1. Route USART0 to its ALTERNATE pins (PD4/PD5) via PORTMUX ---
-    ;     PORTMUX.USARTROUTEA, USART0 field = ALT1.
-    ;     VERIFY the symbol on your header:
-    ;       grep -E 'PORTMUX_USART0|USARTROUTEA' ioavr64dd32.h
-    ldi     r16, PORTMUX_USART0_ALT1_gc
+    ;     PORTMUX.USARTROUTEA, USART0 field = ALT3 (TxD=PD4, RxD=PD5).
+    ;     The *_gc group codes live in a C enum in modern avr-libc, so the
+    ;     assembler can't see them -- build the value from the *_gp #define
+    ;     instead.  (ALT3 value = 3; ALT1 = PA4/PA5, the wrong pins.)
+    ldi     r16, (3 << PORTMUX_USART0_gp)    ; ALT3 -> PD4 TX / PD5 RX (Nano CDC)
     sts     PORTMUX_USARTROUTEA, r16
 
     ; --- 2. PD4 (TX) as output; PD5 (RX) stays input (default) ---

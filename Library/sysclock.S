@@ -110,7 +110,9 @@ init_sysclock_1k:
     sts     TCA0_SINGLE_PERH, r16
 
     ; --- WGMODE = NORMAL (CTRLB low 3 bits = 0) ---
-    ldi     r16, TCA_SINGLE_WGMODE_NORMAL_gc
+    ;     *_gc group codes are C enum constants in modern avr-libc and are
+    ;     invisible to the assembler -- build the field from its *_gp #define.
+    ldi     r16, (0x0 << TCA_SINGLE_WGMODE_gp)   ; WGMODE = NORMAL (0)
     sts     TCA0_SINGLE_CTRLB, r16
 
     ; --- enable the overflow interrupt: INTCTRL.OVF = 1 ---
@@ -118,7 +120,9 @@ init_sysclock_1k:
     sts     TCA0_SINGLE_INTCTRL, r16
 
     ; --- start the timer: CLKSEL = DIV16, ENABLE = 1 ---
-    ldi     r16, TCA_SINGLE_CLKSEL_DIV16_gc | TCA_SINGLE_ENABLE_bm
+    ;     CLKSEL DIV16 value = 0x4 (see TCA_SINGLE_CLKSEL_DIV16_gv); shift it
+    ;     into the CLKSEL field with *_gp, then OR in the ENABLE bit mask.
+    ldi     r16, (0x4 << TCA_SINGLE_CLKSEL_gp) | TCA_SINGLE_ENABLE_bm
     sts     TCA0_SINGLE_CTRLA, r16
 
     sei                                 ; global interrupt enable
