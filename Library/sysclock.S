@@ -32,6 +32,7 @@
 
 ; Dependencies — included here so this module assembles standalone
 #include <avr/io.h>
+#include "registers.S"
 
 ; ====================================================================
 ;  Register and symbol notes
@@ -46,17 +47,10 @@
 
 ; ---------- Registers and Values ----------------
 ; r16                           ; temp register (general scratch)
-; r17                           ; temp register (second scratch)
 ; ISR uses a dedicated save reg so it never clobbers main's scratch:
 ; r2                            ; ISR_temp  - SREG save inside the ISR
 ; r8 / r9                       ; ticks_lo / ticks_hi - 16-bit tick counter
 ;
-; (Mirrors the tiny13 module's use of dedicated low regs for the counter
-;  so the ISR stays short and never touches the upper scratch registers.)
-
-#define ISR_temp   r2
-#define ticks_lo   r8
-#define ticks_hi   r9
 
 ; ====================================================================
 ;  TEXT SECTION  (executable code lives here)
@@ -77,8 +71,8 @@ TCA0_OVF_handler:
     in      ISR_temp, CPU_SREG          ; save status flags
     ; --- clear the OVF interrupt flag by writing 1 to it ---
     ;     TCA0.SINGLE.INTFLAGS, OVF bit (bit 0). Write-1-to-clear.
-    ldi     r16, TCA_SINGLE_OVF_bm
-    sts     TCA0_SINGLE_INTFLAGS, r16
+    ldi     temp_16, TCA_SINGLE_OVF_bm
+    sts     TCA0_SINGLE_INTFLAGS, temp_16
     ; --- increment the 16-bit tick counter ---
     inc     ticks_lo                    ; r8++
     brne    1f                          ; no carry -> done
@@ -104,26 +98,26 @@ init_sysclock_1k:
 
     ; --- set PER = 249 (16-bit write; low byte then high byte) ---
     ;     TCA in SINGLE mode: PER is 16-bit at TCA0.SINGLE.PER
-    ldi     r16, lo8(249)
-    sts     TCA0_SINGLE_PERL, r16
-    ldi     r16, hi8(249)
-    sts     TCA0_SINGLE_PERH, r16
+    ldi     temp_16, lo8(249)
+    sts     TCA0_SINGLE_PERL, temp_16
+    ldi     temp_16, hi8(249)
+    sts     TCA0_SINGLE_PERH, temp_16
 
     ; --- WGMODE = NORMAL (CTRLB low 3 bits = 0) ---
     ;     *_gc group codes are C enum constants in modern avr-libc and are
     ;     invisible to the assembler -- build the field from its *_gp #define.
-    ldi     r16, (0x0 << TCA_SINGLE_WGMODE_gp)   ; WGMODE = NORMAL (0)
-    sts     TCA0_SINGLE_CTRLB, r16
+    ldi     temp_16, (0x0 << TCA_SINGLE_WGMODE_gp)   ; WGMODE = NORMAL (0)
+    sts     TCA0_SINGLE_CTRLB, temp_16
 
     ; --- enable the overflow interrupt: INTCTRL.OVF = 1 ---
-    ldi     r16, TCA_SINGLE_OVF_bm
-    sts     TCA0_SINGLE_INTCTRL, r16
+    ldi     temp_16, TCA_SINGLE_OVF_bm
+    sts     TCA0_SINGLE_INTCTRL, temp_16
 
     ; --- start the timer: CLKSEL = DIV16, ENABLE = 1 ---
     ;     CLKSEL DIV16 value = 0x4 (see TCA_SINGLE_CLKSEL_DIV16_gv); shift it
     ;     into the CLKSEL field with *_gp, then OR in the ENABLE bit mask.
-    ldi     r16, (0x4 << TCA_SINGLE_CLKSEL_gp) | TCA_SINGLE_ENABLE_bm
-    sts     TCA0_SINGLE_CTRLA, r16
+    ldi     temp_16, (0x4 << TCA_SINGLE_CLKSEL_gp) | TCA_SINGLE_ENABLE_bm
+    sts     TCA0_SINGLE_CTRLA, temp_16
 
     sei                                 ; global interrupt enable
     ret
@@ -137,10 +131,10 @@ init_sysclock_1k:
 ; --------------------------------------------------------------------
 .global ticks
 ticks:
-    in      r16, CPU_SREG               ; save I-flag state
-    cli                                 ; atomic 16-bit read
-    movw    r24, ticks_lo               ; r25:r24 <- r9:r8
-    out     CPU_SREG, r16               ; restore (re-enables I if it was set)
+    in      ISR_temp, CPU_SREG      ; save I-flag state
+    cli                             ; atomic 16-bit read
+    movw    r24, ticks_lo           ; r25:r24 <- r9:r8
+    out     CPU_SREG, ISR_temp      ; restore (re-enables I if it was set)
     ret
 
 ; ====================================================================

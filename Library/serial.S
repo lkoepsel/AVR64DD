@@ -1,80 +1,91 @@
-; =============================================================
-; serial  –  serial program and library
-; Target : ATtiny13A (1.2 MHz default internal RC oscillator)
+; ====================================================================
+;  ; AVR64DD32 
+;       init_serial   - configure USART0 on the Curiosity Nano CDC pins
+;       char_write       - transmit one byte (in r24), blocking
+;       word_write       - transmit two bytes (in r25/r24), blocking
+;       flash_write     - transmit a zero-terminated string (Z -> flash)
+;       char_read       - receive one byte (returns in r24), blocking
+; Target : AVR64DD32 (Curiosity Nano)
+; Clock  : see F_CPU note below -- baud value depends on it
 ; Toolchain: avr-as / avr-ld  (GNU Binutils for AVR)
-; =============================================================
+;
+;  The Curiosity Nano wires the USB CDC virtual COM port to USART0:
+;       PD4 = USART0 TX,  PD5 = USART0 RX
+;  BUT these are USART0's ALTERNATE pins, so PORTMUX must route USART0
+;  to them. Skipping the PORTMUX step is the #1 cause of "no output".
+;
+;  On the RPi, the port appears as /dev/ttyACM0 (or ACM1). Talk to it with:
+;       tio /dev/ttyACM0        (or screen / picocom), 8N1, baud below.
+; ====================================================================
 
-; Dependencies — included here so this module assembles standalone
-; (C examples build serial.S on its own). Both are include-guarded /
-; idempotent, so it's safe when an asm main.S already included them.
 #include <avr/io.h>
-#include "registers.S"
+
+; --------------------------------------------------------------------
+;  CLOCK + BAUD
+;  BAUD register = (64 * F_CPU) / (16 * baud) = (4 * F_CPU) / baud
+;
+;  Pick ONE matching your actual main clock:
+;    4 MHz  (post-reset default):   9600 -> 1667 (0x0683)   [recommended]
+;    4 MHz                       : 115200 ->  139 (0x008B)   [~1.4% err, risky]
+;   24 MHz  (after CLKCTRL bump) : 115200 ->  833 (0x0341)   [low error]
+;
+;  Defaults below: 4 MHz / 9600 baud. Change BAUD_VAL to match your setup.
+; --------------------------------------------------------------------
+#define BAUD_VAL  1667        // 4 MHz, 9600 baud  (cpp keeps ';' in a #define, so use //)
 
 ; ====================================================================
-;  TEXT SECTION  (executable code lives here)
+;  TEXT SECTION
 ; ====================================================================
 .section .text
 
 ; ---------- Registers and Values ----------------
-; r18                           ; temp register - temp_r18
-; r20                           ; temp register - bit_ctr
-; r24                           ; char register - char_reg
+; r24                           ; char register - byte to send / received byte
+; r16                           ; temp register - scratch
+; Z (r31:r30)                   ; flash pointer for flash_write
 
-; #define    period       37      ; # of ticks for 1 bit period (9600 baud @ 1.2MHz)
-; #define    half_period  20      ; # of ticks for  a .5 bit period
-; #define    TRIM         0x60    ; OSCCAL trim value, use examples/osccal to determine
-
-; ====================================================================
-;  Subroutines SECTION
-; ====================================================================
-
-;initialize serial port, must be called before using char_read and char_write
+; --------------------------------------------------------------------
+;  init_serial - set up USART0 on PD4/PD5 via PORTMUX, 8N1, TX+RX enabled
+; --------------------------------------------------------------------
 .global init_serial
 init_serial:
+    ; --- 1. Route USART0 to its ALTERNATE pins (PD4/PD5) via PORTMUX ---
+    ;     PORTMUX.USARTROUTEA, USART0 field = ALT3 (TxD=PD4, RxD=PD5).
+    ;     The *_gc group codes live in a C enum in modern avr-libc, so the
+    ;     assembler can't see them -- build the value from the *_gp #define
+    ;     instead.  (ALT3 value = 3; ALT1 = PA4/PA5, the wrong pins.)
+    ldi     r16, (3 << PORTMUX_USART0_gp)    ; ALT3 -> PD4 TX / PD5 RX (Nano CDC)
+    sts     PORTMUX_USARTROUTEA, r16
 
-    ldi     temp_r18, TRIM           ; osc trim value
-    out     RCCAL, temp_r18          ; apply measured OSCCAL trim (via examples/osccal)
+    ; --- 2. PD4 (TX) as output; PD5 (RX) stays input (default) ---
+    ldi     r16, (1 << 4)          ; PIN4 = PD4 = TX
+    sts     PORTD_DIRSET, r16
 
-;   Set TX pin as output, set RX pin as input pullup
-    sbi     IO_DDR, TX
-    cbi     IO_DDR, RX
-    sbi     IO_PORT, RX
+    ; --- 3. Baud rate: 16-bit write, low then high ---
+    ldi     r16, lo8(BAUD_VAL)
+    sts     USART0_BAUDL, r16
+    ldi     r16, hi8(BAUD_VAL)
+    sts     USART0_BAUDH, r16
 
-    ; set TX high to start, start_bit is low
-    sbi     IO_PORT, TX
+    ; --- 4. Enable transmitter and receiver ---
+    ;     USART0.CTRLB: TXEN and RXEN bits.
+    ldi     r16, USART_TXEN_bm | USART_RXEN_bm
+    sts     USART0_CTRLB, r16
+
+    ; CTRLC defaults to async 8N1 at reset, so no write needed for that here.
     ret
-; --------------------------------------------------------------------
 
-; write a char (passed in r24, per AVR-GCC ABI) to the serial port
+; --------------------------------------------------------------------
+;  char_write - send the byte in r24, waiting until the data register is free
+; --------------------------------------------------------------------
 .global char_write
 char_write:
-
-    ; Start bit
-    cbi     IO_PORT, TX
-    delay_8 period
-
-    ;  8 data bits and preserve char
-    ldi     bit_ctr, no_bits
-    mov     temp_r18, char_reg
-
-write_bit:
-    ror     temp_r18
-    brcs    write_one
-    cbi     IO_PORT, TX
-    rjmp     next_write
-
-write_one:
-    sbi     IO_PORT, TX
-
-next_write:
-    delay_8 period
-
-    dec     bit_ctr
-    brne    write_bit
-
-    ;  Stop bit
-    sbi     IO_PORT, TX
-    delay_8 period
+    ; --- wait for DREIF (data register empty) in USART0.STATUS ---
+1:
+    lds     r16, USART0_STATUS
+    sbrs    r16, USART_DREIF_bp     ; skip next when DRE flag set (ready)
+    rjmp    1b
+    ; --- write the byte; this clears DREIF and starts transmission ---
+    sts     USART0_TXDATAL, r24
     ret
 ; --------------------------------------------------------------------
 
@@ -88,70 +99,38 @@ word_write:
     rcall   char_write
     ret
 
-; char_read - receive one char into r24 (8N1, LSB first), per AVR-GCC ABI
-.global char_read
-char_read:
-;   Wait for start bit: idle is HIGH, start bit is LOW
-;   while (IO_PIN & (1 << RX)) {} ;
-wait_start:
-    in      bit_ctr, IO_PIN
-    sbrc    bit_ctr, RX    ; skip rjmp when RX is LOW = start bit
-    rjmp    wait_start
 
-;   Wait a .5 bit period so bit0 is sampled mid-bit
-    delay_8 half_period
-
-    in      bit_ctr, IO_PIN
-    sbrc    bit_ctr, RX    ; confirm start bit remains low
-    rjmp    wait_start
-
-;   Wait a 1 bit period for a total of 1.5 bit periods
-    delay_8 period
-
-;   Read 8 data bits, LSB first, into r24
-    ldi     bit_ctr, no_bits              ; bit counter
-
-read_bit:
-    in      temp_r18, IO_PIN           ; scratch read - do not clobber r24
-    clc                         ; assume bit is 0
-    sbrc    temp_r18, RX         ; skip sec when RX is LOW
-    sec                         ; RX HIGH -> bit is 1
-    ror     char_reg                 ; shift carry into MSB (LSB-first)
-
-    delay_8 period
-
-    dec     bit_ctr
-    brne    read_bit
-
-    ret
 ; --------------------------------------------------------------------
-
-
-; void flash_write(uint8_t addr)
-;   Set the Z  r31/r30 address to PROGMEM text on entry
-;   Calling convention: AVR-GCC ABI (r31/r30 FLASH address, r24 out, r18 scratch).
-
+;  flash_write - send a zero-terminated string from FLASH (Z points to it)
+;              Uses lpm with post-increment, like the tiny13 LPM pattern.
+; --------------------------------------------------------------------
 .global flash_write
 flash_write:
-        lpm     char_reg, Z+     ; load byte at Z into r24, the char_write register
-        tst     char_reg          ; exit if null byte
-        breq    print_done
-        rcall   char_write  ; write char to console
-        rjmp    flash_write
-
-print_done:
+1:
+    lpm     r24, Z+                 ; load next char from flash, advance Z
+    cpi     r24, 0                  ; null terminator?
+    breq    2f                      ; yes -> done
+    rcall   char_write                 ; no  -> send it
+    rjmp    1b
+2:
     ret
 
 ; --------------------------------------------------------------------
+;  char_read - block until a byte arrives, return it in r24
+; --------------------------------------------------------------------
+.global char_read
+char_read:
+    ; --- wait for RXCIF (receive complete) in USART0.STATUS ---
+1:
+    lds     r16, USART0_STATUS
+    sbrs    r16, USART_RXCIF_bp     ; skip when receive-complete flag set
+    rjmp    1b
+    ; --- read the received byte (clears RXCIF) ---
+    lds     r24, USART0_RXDATAL
+    ret
 
 ; ====================================================================
-;  DATA SECTION  (initialized variables in SRAM)
-;  Declare with:  my_var: .byte 0
+;  DATA / BSS
 ; ====================================================================
 .section .data
-
-; ====================================================================
-;  BSS SECTION  (zero-initialized / uninitialized variables in SRAM)
-;  Declare with:  my_buf: .skip 16
-; ====================================================================
 .section .bss

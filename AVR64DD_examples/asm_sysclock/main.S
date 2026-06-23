@@ -1,18 +1,17 @@
 ; =============================================================
 ; sysclock  –  provides non-blocking 1kHz timer
-; Target : ATtiny13A (1.2 MHz default internal RC oscillator)
+; Target : AVR64DD32 @4MHz
 ; Toolchain: avr-gcc  (GNU AVR toolchain)
 ; =============================================================
 
 #include <avr/io.h>
 #include "registers.S"
-#include "serial_dd32.S"
+#include "serial.S"
 #include "sysclock.S"
 
 ; ====================================================================
 ;  INTERRUPT VECTOR TABLE
-;  ATtiny13A has 10 vectors, each one instruction word (2 bytes) wide.
-;  Must live at flash address 0x0000.
+;  AVR64DD32 vectors (2) required
 ; ====================================================================
 .section .vectors, "ax", @progbits
     rjmp    reset_handler       ; 0x000  RESET
