@@ -1,7 +1,13 @@
 ; =============================================================
 ; main  –  Change the system clock freq on the AVR64DD32
-; Target : AVR64DD32 @ 4 MHz
-; Frequency is dynamic, so this needs to  be called for 24MHz
+; Default : AVR64DD32 @ 4 Mhz
+; Target : AVR64DD32 @ 24 Mhz
+; Clock is dynamic, so set_24M needs to be called for 24MHz
+;    CLKCTRL_FRQSEL_1M_gv           = 0x00,  /* 1 MHz system clock */
+;    CLKCTRL_FRQSEL_4M_gv           = 0x03,  /* 4 MHz system clock (default) */
+;    CLKCTRL_FRQSEL_8M_gv           = 0x05,  /* 8 MHz system clock */
+;    CLKCTRL_FRQSEL_16M_gv          = 0x07,  /* 16 MHz system clock */
+;    CLKCTRL_FRQSEL_24M_gv          = 0x09   /* 24 MHz system clock */
 ; =============================================================
 
 #include <avr/io.h>
