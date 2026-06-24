@@ -34,7 +34,7 @@ This repository provides example programs in [*C* (ANSI C99, AVR-LibC)](https://
 
 Example programs live under [`AVR64DD_examples`](./AVR64DD_examples). (The [`ATtiny13A_examples`](./ATtiny13A_examples) folder is legacy from this project's origins and is being phased out.) Each subfolder is a *C*, *assembly*, or *mixed C/assembly* example. *C* and *mixed* examples use `main.c` as the principal program; *assembly* examples are named with an `asm_` prefix (e.g. `asm_blink`) and use `main.S`. A single root `Makefile` builds all three kinds — it auto-detects whether to link freestanding (*assembly*, no C runtime) or with the *C runtime*. The standard *make* targets (`make`, `make flash`, `make size`, …) work in every example folder.
 
-The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = curiosity_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
+The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = pkobn_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
 For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end. (The older ATtiny13A-oriented notes are under [Using Bloom and avr-gdb](#using-bloom-and-avr-gdb).)
 
@@ -167,192 +167,26 @@ Headless terminal debugging for the AVR64DD32 with *gdb-dashboard* + *Bloom* —
 ## Steps to Use
 1. Install the AVR toolchain which consists of *avr-gcc*, *avr-gdb*, and *avrdude* as well as *make* and *git*. A **great** method is to use a [Raspberry Pi as your development platform.](./docs/RPi_build.md). If you wish to use *Windows* or *macOS*, some instruction is provided [here](https://www.wellys.com/posts/avr_c_setup/).
 2. Clone this repository.
-3. Open the *ATtiny* folder and add an *env.make* file (*see below*) based on your programming board and system.
+3. Open the *AVR64DD* folder and add an *env.make* file (*see below*) based on your programming board and system.
 4. Navigate to *examples/blink* in your CLI and run:
 	* *make* to compile, link and create an executable file
 	* *make flash* to upload executable file to your board.
 5. Look at the other examples to better understand how to use the code.
 
 ## Programming Summary
-For most of this development, I used the *Microchip SNAP* along with *bloom* and *avr-gdb*. This combination, replaces the bootloader, provides significant debugging resources and is inexpensive ([*Microchip SNAP is $12*](https://www.digikey.com/en/products/detail/microchip-technology/PG164100/9562532)).
-### Note:
-1. Bloom requires specific functionality of the ISP interface. Connect via ISP then use debugWire for debugging and loading programs. 
-   From Bloom: "*The debugWIRE interface does not support fuse programming. Fuses can only be changed via the ISP interface (for debugWIRE AVR targets). In order for Bloom to manage the DWEN fuse bit, the debug tool must be connected to the target via the ISP interface.*"
-1. **The note above means *bloom* will control the DWEN fuse. The less the fuse is changed, the better, therefore, it's best to use *load* and *mon reset* within *avr-gdb* instead of using AVRDUDE, when connected using the ATMEL ICE or Microchip SNAP.**
-1. *PB3* and *PB4* are available using *ISP* programmer
-1. *PB0-PB4* are available using *debugWire*. Most of the time, *bloom* is interacting with the *ATtiny13A* using the *RESET* pin (*debugWIRE*), which means you can easily use all of the *PORTB* pins.
-1. The arrow on the ATMEL ICE ISP connector is incorrect. Pin 3 (middle pin) is at the notch.
-
-## Making Connections
-Insert your ATtiny13A into your breadboard. You will then need to make connections to it via a cable from the *ATMEL-ICE* or *SNAP*.
-
-### **Minimal Working Circuit**
-1. Connect **VCC** (pin 8) to your power supply (2.7-5.5V)
-2. Connect **GND** (pin 4) to ground
-3. Add **100nF decoupling capacitor** between VCC and GND
-5. Connect ISP header for programming
-6. When **NOT** using *debugWIRE*, add a 10kΩ pull-up resistor to pin 1 **RESET**, along with a button (one side to **GND**, other side to **RESET**)
-
-### ATtiny13A Pinout
-```
-                    ATtiny13
-                  ┌──────────┐
-    RESET/PB5 ──1─┤          ├─8── VCC
-          PB3 ──2─┤          ├─7── PB2/SCK
-          PB4 ──3─┤          ├─6── PB1/MISO
-          GND ──4─┤          ├─5── PB0/MOSI
-                  └──────────┘
-```
-
-### ISP Connections
-
-| ISP Desc | ISP Pin   | ATtiny13A  | **13A Pin** | Color  |
-|---------|--------|------------|-------------|--------|
-| RESET   | Pin 5  | PB5/RESET  | **Pin 1**   | Brown  |
-| GND     | Pin 6  | GND        | **Pin 4**   | Black  |
-| MOSI    | Pin 4  | PB0        | **Pin 5**   | Green  |
-| MISO    | Pin 1  | PB1        | **Pin 6**   | Yellow |
-| SCK     | Pin 3  | PB2        | **Pin 7**   | Orange |
-| VCC     | Pin 2  | VCC        | **Pin 8**   | Red    |
-
-### ATtiny13A Connections for ATMEL-ICE Connector
-
-```
-                ISP Header (2x3)
-              +-------+-------+
-MISO/YELLOW --| 1  ●     ●  2 |--- VCC/RED
-            |         |       |
-SCK/ORANGE -| 3  ●       ●  4 |--- MOSI/GREEN
-            |         |       |
-RESET/BROWN --| 5  ●     ●  6 |--- GND/BLACK
-              +-------+-------+
-                  |||||||
-                  ||||||+-- Pin 6: GND
-                  |||||+--- Pin 5: RESET
-                  ||||+---- Pin 4: MOSI
-                  |||+----- Pin 3: SCK
-                  ||+------ Pin 2: VCC (+5V)
-                  |+------- Pin 1: MISO
-                  +-------- Notch/Key (orientation)
-```
-
-### ATtiny 13A Connections for SNAP SIL
-| Snap SIL | Signal/Adapter | Wire Color | **13A Pin**  | 
-| :---------: | :-----------: | :------: | :----------: |
-| 1  | N/C    | none   | N/C |
-| 2  | VTG   | Red    | 8   |
-| 3  | GND   | Black  | 4   |
-| 4  | MISO  | Yellow | 6   |
-| 5  | SCK   | Orange | 7   |
-| 6  | RESET | Brown  | 1   |
-| 7  | MOSI  | Green  | 5   |
-| 8  | N/C    | none   | N/C |
-
-### **Modified Reset Pin Configuration for debugWIRE**
-- If exists, **remove the 10kΩ pull-up resistor** from the RESET pin (pin 1)
-- The RESET pin becomes a **bidirectional communication line** when DebugWire is enabled
-- Keep the reset line as short as possible to minimize noise
-
-Remember that while DebugWire provides powerful debugging capabilities with just one wire, it **temporarily disables normal ISP programming** until you explicitly disable the DebugWire mode.
-
-
-## Port B Pin Functionality
-
-| 13A PDIP | Port Pin | Alternate Functions |
-| --- |----------|-------------------|
-|  1  | **PB5** | • RESET: Reset Pin<br>• dW: debugWIRE I/O<br>• ADC0: ADC Input Channel 0<br>• PCINT5: Pin Change Interrupt, Source 5 |
-|  3  | **PB4** | • ADC2: ADC Input Channel 2<br>• PCINT4: Pin Change Interrupt 0, Source 4 |
-|  2  | **PB3** | • CLKI: External Clock Input<br>• ADC3: ADC Input Channel 3<br>• PCINT3: Pin Change Interrupt 0, Source 3 |
-|  7  | **PB2** | • SCK: Serial Clock Input<br>• ADC1: ADC Input Channel 1<br>• T0: Timer/Counter0 Clock Source<br>• PCINT2: Pin Change Interrupt 0, Source 2 |
-|  6  | **PB1** | • MISO: SPI Host Data Input / Client Data Output<br>• AIN1: Analog Comparator, Negative Input<br>• OC0B: Timer/Counter0 Compare Match B Output<br>• INT0: External Interrupt 0 Input<br>• PCINT1: Pin Change Interrupt 0, Source 1 |
-|  5  | **PB0** | • MOSI: SPI Host Data Output / Client Data Input<br>• AIN0: Analog Comparator, Positive Input<br>• OC0A: Timer/Counter0 Compare Match A output<br>• PCINT0: Pin Change Interrupt 0, Source 0 |
-
-## ADC Features
-* 4 Channels PinB2-5
-* 1 Analog Comparator PB0-1
-* 10-bit resolution
-* 260us conversion time (*longest*)
-
-### **Power Supply Components**
-- **VCC**: Connect to pin 8 (supply voltage: 2.7V to 5.5V)
-- **GND**: Connect to pin 4
-- **Decoupling capacitor**: 100nF ceramic capacitor between VCC and GND, placed as close to the chip as possible
-
-### **Important Considerations**
-
-1. **Fuse Configuration**
-
-  * You must **enable the DWEN (DebugWire Enable) fuse bit**
-  * Once enabled, the RESET pin loses its reset functionality and becomes a DebugWire interface
-  * ISP programming is disabled when DebugWire is active
-  * **Bloom does this quite well, leave it to Bloom**
-
-2. **Debugger Requirements**
-  * Use a compatible debugger like **Atmel-ICE**, **Microchip SNAP**, or **AVR Dragon**
-  * The debugger must support DebugWire protocol
-
-3. **Power Cycling**
-  * After enabling DebugWire, you need to **power cycle** the target device
-  * The debugger will then communicate through the single-wire interface
-
-### **To Disable DebugWire**
-If you need to return to normal ISP programming:
-1. Use the debugger to **disable DebugWire** through the debugging software
-1. Use *avrdude* to write a **HIGH** of 0xff to the ATtiny13A, see *avrdude commands* below
+For this development, I used the *Microchip AVR64DD32 Curiosity Nano* along with *bloom* and *avr-gdb*. This combination, replaces the bootloader, provides significant debugging resources and is inexpensive ([*Microchip Curiosity Nano is $10*](https://www.microchipdirect.com/dev-tools/EV72Y42A?exact=true&allDevTools=true)).
 
 ## *avrdude* commands
 
-### LOW Fuse Reference for Clock Speed (Default in BOLD)
-
-| Clock Speed | Low Fuse | CLKDIV8 | Oscillator |
-|-------------|----------|----------| --------------- |
-| 9.6MHz      | 0x7A     | Disabled    | 9.6MHz       |
-| 4.8MHz      | 0x79     | Disabled    | 4.8MHz       |
-| **1.2MHz**  | **0x6A** | **Enabled** | **9.6MHz÷8** |
-| 600kHz      | 0x69     | Enabled     | 4.8MHz÷8     |
-
-### HIGH Fuse Reference for DWEN (Default in BOLD)
-
-| Mode        | HIGH Fuse| debugWIRE| 
-|-------------|----------|---------------|
-| **ISP**     | **0xFF** | **Disabled**  |
-| *debugWIRE*   | 0x7F     | Enabled       | 
-
-
-#### simple *avrdude* terminal command to test connection
+#### simple *avrdude* terminal command to test connection on Curiosity Nano
 ```bash
-avrdude -p attiny13a -P usb  -c snap_isp -t
+avrdude -p 64dd32 -P usb -c pkobn_updi -t
 ```
 
 * *?* for help
 * *part* for confirming chip
+* *parms* for showing target voltage
 * *q* to quit
-
-#### read fuses, high fuse needs to be 0xff for ISP (*avrdude*) programming
-```bash
-avrdude -c snap_isp -p attiny13a -U lfuse:r:-:h -U hfuse:r:-:h
-```
-
-#### if required, write fuses to allow for ISP programming
-```bash
-avrdude -c snap_isp -p attiny13a -U lfuse:w:0x6A:m -U hfuse:w:0xFF:m
-```
-
-#### program ATtiny13A
-```bash
-avrdude -c snap_isp -p attiny13a -U flash:w:main.elf:e
-```
-
-#### confirm hash of FLASH memory
-```bash
-avrdude -p t13 -c snap_isp -U flash:r:-:i 2>/dev/null | md5sum
-```
-
-#### Confirming hex file against FLASH
-```
-# Verify flash against a file
-avrdude -p t13 -c snap_isp -U flash:v:main.hex:i
-```
 
 ## Make Commands (requires ISP interface)
 

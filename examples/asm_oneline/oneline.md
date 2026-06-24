@@ -1,24 +1,11 @@
-On the ATtiny13A, `ICALL` calls the routine whose word-address is in the Z register (`r31:r30`). Because Flash addressing on AVR uses word addresses for indirect calls but `LPM` reads bytes, a jump table built in Flash must account for that.
+On AVR ucontrollers, `ICALL` calls the routine whose word-address is in the Z register (`r31:r30`). Because Flash addressing on AVR uses word addresses for indirect calls but `LPM` reads bytes, a jump table built in Flash must account for that.
 
-Here's a working example: a dispatch table of routines, indexed at runtime.
+Working example: a jump table of routines, indexed at runtime.
 
 ```asm
-; dispatch.S - ICALL jump table demo for ATtiny13A
-; avr-gcc -mmcu=attiny13a -nostdlib -o dispatch.elf dispatch.S
-
-#include <avr/io.h>
-
-; ---- Vector table ----
-        .section .text
-        .global  main
-main:
-        ldi     r16, 0xFF
-        out     _SFR_IO_ADDR(DDRB), r16   ; PORTB all outputs
-
-        ; ---- Choose an index (0..2) and dispatch ----
-        ldi     r24, 1                    ; index into the table
-
-dispatch:
+initialization code
+...
+jump:
         ; Z = jump_table + (index * 1 word)
         ldi     ZL, lo8(jump_table)
         ldi     ZH, hi8(jump_table)
@@ -33,10 +20,10 @@ dispatch:
         ; Z now holds the word-address of the target routine
         icall                             ; push PC, jump to (Z)
 
-        rjmp    dispatch_done
+        rjmp    jump_done
 
-dispatch_done:
-        rjmp    dispatch_done
+jump_done:
+        rjmp    jump_done
 
 ; ---- The routines ----
 routine0:
@@ -66,6 +53,6 @@ The key points for your students:
 
 `ICALL` uses Z as a *word* address (the Program Counter is word-granular on AVR), while `LPM` reads *bytes* from Flash. That mismatch is the classic source of bugs. The table stores word addresses via `pm(label)` (the avr-gcc/binutils operator that divides a byte address by 2). To fetch the Nth entry with `LPM`, you scale the index by 2 because each `.word` entry occupies 2 bytes in Flash, but the *value* you load is already a word address ready for `ICALL`.
 
-Contrast with `ICALL` vs `CALL`/`RCALL`: the latter two encode a fixed destination at assembly time, so they can't be data-driven. `ICALL` is how you get a C-style function-pointer table or a `switch` jump table in assembly. The cost is 3 cycles on the ATtiny13A and one extra word of return address on the (tiny, 64-byte) RAM stack — worth flagging given the constraints.
+Contrast with `ICALL` vs `CALL`/`RCALL`: the latter two encode a fixed destination at assembly time, so they can't be data-driven. `ICALL` is how you get a C-style function-pointer table or a `switch` jump table in assembly. The cost is 3 cycles on the AVR uC and one extra word of return address on the RAM stack — worth flagging if there are constraints.
 
 One caution worth giving students: `r1` is the conventional "zero register" under the avr-gcc ABI, but in `-nostdlib` hand-written code nothing guarantees it's zero. If you didn't `clr r1` at startup, use `clr` on a scratch register for the `adc` instead.
