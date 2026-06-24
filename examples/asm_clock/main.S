@@ -19,16 +19,18 @@ __vectors:
 reset_handler:                      ; serves as main_setup
 
 ; --- Set OSCHF to 24 MHz ---
-    ldi   r16, CCP_IOREG_gc          ; 0xD8, signature for protected I/O
-    ldi   r17, CLKCTRL_FREQSEL_24M_gc
-    out   CCP, r16                   ; arm CCP (4-cycle window starts)
-    sts   CLKCTRL_OSCHFCTRLA, r17    ; write within 4 cycles
+; CCP_IOREG_gc (CCP_IOREG_gv << CPU_CCP_gp) = (0xD8 << 0) signature for protected I/O
+    ldi   temp_16, (0xD8 << 0)
+; CLKCTRL_FRQSEL_24M_gc          = (CLKCTRL_FRQSEL_24M_gv << CLKCTRL_FRQSEL_gp)          
+    ldi   temp_17, (0x09 << CLKCTRL_FRQSEL_gp)
+    out   CCP, temp_16                   ; arm CCP (4-cycle window starts)
+    sts   CLKCTRL_OSCHFCTRLA, temp_17    ; write within 4 cycles
 
 ; --- Disable prescaler: run main clock at full 24 MHz ---
-    ldi   r16, CCP_IOREG_gc
-    ldi   r17, 0x00                  ; PEN = 0
-    out   CCP, r16
-    sts   CLKCTRL_MCLKCTRLB, r17
+    ldi   temp_16, (0xD8 << 0)
+    ldi   temp_17, 0x00                  ; PEN = 0
+    out   CCP, temp_16
+    sts   CLKCTRL_MCLKCTRLB, temp_17
 
 .section .data
 .section .bss
