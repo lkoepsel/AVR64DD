@@ -1,86 +1,231 @@
-# AVR64DD32 Sysclock
+# AVR64DD32 Sysclock (TCA0 OVF) Setup
 
-## Comparison to ATtiny13A sysclock
-The ATtiny13A uses Timer0 in CTC mode with COMPA; the AVR64DD32 has the much richer TCA0 peripheral, and you specifically asked for the **OVF (overflow) interrupt** rather than compare-match. So this is TCA0 in normal mode, counting to PER, firing OVF. The vector is `TCA0_OVF_vect`, and the register model is entirely different (memory-mapped, `lds`/`sts`, not `in`/`out` for most of it). I'll keep your tick-counter ISR structure, your comment banners, your "Registers and Values" block, and the standalone-assembly approach. No AVR toolchain in this environment, so I can't assemble-test it here or verify the exact register addresses against the header — which means I'll write it carefully against the known AVR64DD32 / AVR-Dx register model and flag the specific values for you to confirm with `grep` on your RPi before relying on them. Let me write the program.A companion to your tiny13 module, built around TCA0's overflow interrupt as you asked. It keeps your conventions — the banner header, the "Registers and Values" block, dedicated low registers for the ISR (`ISR_temp`, `ticks_lo`, `ticks_hi`) so the ISR stays short, the `movw`-based `ticks` return, and the standalone-assembly structure with the three sections.
+This document is a step-by-step guide for the TCA0-based 1 kHz system tick
+used in this example, how its vector table is wired, how to view its
+registers live in `gdb-dashboard`, and how to retune the tick rate.
 
-## Changes from ATtiny13, and why:
+The reference implementation is `Library/sysclock.S`. The vector table and
+demo loop live in `main.S` in this directory.
 
-The big structural shift is **OVF instead of COMPA**. TCA0 in NORMAL mode counts 0→PER and fires overflow on rollover, so the timing is set by PER rather than OCR0A. I worked the math for the AVR64DD32's 4 MHz post-reset clock and chose prescale /16 with PER=249, which gives an *exact* 1.000 ms tick — the comment block shows the arithmetic and an alternate /64 option so you can teach the tradeoff.
+---
 
-The register access model is the other teaching point: TCA0 is **memory-mapped**, so it's `lds`/`sts`, not `in`/`out`. Only SREG stays as `in`/`out` (via `CPU_SREG`).
+## 1. What this peripheral does
 
-Two AVR-Dx specifics: the ISR **clears OVF by writing 1** to the INTFLAGS bit (write-1-to-clear, unlike the tiny13 where the flag auto-clears), and `init` enables the interrupt through `INTCTRL` then starts the timer by writing `CLKSEL | ENABLE` to `CTRLA`. I also made `ticks` do an atomic `cli`/`movw`/restore read, since a 16-bit counter can tear if an overflow lands mid-read.
+| Item            | Value                                                    |
+|-----------------|----------------------------------------------------------|
+| Peripheral      | `TCA0` in SINGLE / NORMAL mode                           |
+| Counter width   | 16-bit (`TCA0.SINGLE.CNT`)                               |
+| Period register | `TCA0.SINGLE.PER` (counter resets to 0 on `CNT == PER`)  |
+| Interrupt       | `TCA0_OVF_vect` = `__vector_9` (byte 0x12 in vector table)|
+| Tick storage    | `r9:r8` (`ticks_hi:ticks_lo`) — reserved globally        |
+| ISR scratch     | `r2` (`ISR_temp`) — reserved globally                    |
+| Default rate    | 1 kHz (1 ms) at 4 MHz `F_CPU`                            |
 
-The things you must verify on the RPi before relying on it — I couldn't assemble-test here (no AVR toolchain in this environment) and these are device-specific:
+`r2`, `r8`, `r9` are reserved by the root `Makefile` via `-ffixed-r8
+-ffixed-r9` (and the convention for `r2`). Do not clobber them from C or
+from your own assembly. See `CLAUDE.md` for the project-wide rule.
 
-The **vector number**. I used `__vector_8` for `TCA0_OVF_vect`, but confirm it: `grep TCA0_OVF_vect /path/to/ioavr64dd32.h` — it'll show `_VECTOR(n)`, and `n` must match. A wrong vector number is the most likely failure, and it fails silently (ISR never runs).
+---
 
-The **symbol names** — `TCA0_SINGLE_PERL`, `TCA0_SINGLE_CTRLA`, `TCA_SINGLE_CLKSEL_DIV16_gc`, `TCA_SINGLE_OVF_bm`, etc. The AVR-Dx headers expose the peripheral both as a struct (`TCA0.SINGLE.PER`) and, in many versions, as flat `sts`-able symbols. If avr-as doesn't recognize the flat `TCA0_SINGLE_PERL` names, the fix is to use the numeric addresses directly (the same ones your gdb-dashboard peripheral module will use), and I can rewrite it that way — tell me what `grep TCA0_SINGLE_PER /path/to/ioavr64dd32.h` returns and I'll match it.
+## 2. Initialization sequence (`init_sysclock_1k`)
 
-There's a satisfying loop back to your dashboard work here: this program drives exactly the TCA0 registers (CTRLA, CTRLB, PER, CNT) that your `AvrPeripheral` module displays — so once it's running, stepping through `init_sysclock_1k` with the dashboard up lets students watch CTRLA's ENABLE bit flip and CNT start climbing live. Want me to add a tiny `main.S` that calls `init_sysclock_1k` and spins, plus a matching vector-table stub, so it's a complete flashable example for that demo? And if you paste the `grep` output for the TCA0 symbols, I'll lock the names to your header.
+`init_sysclock_1k` performs five steps, in this order:
 
-Good — vector 9, not 8. That's exactly the kind of thing that has to come from the header, not memory. One required fix in this file, then I'll lay out the vector-table side.
+1. **Zero the tick counter.**
+   `eor ticks_lo, ticks_lo` / `eor ticks_hi, ticks_hi`.
+2. **Set PER = 249** (16-bit write, low byte first).
+   `lo8(249) -> TCA0_SINGLE_PERL`, `hi8(249) -> TCA0_SINGLE_PERH`.
+3. **Set WGMODE = NORMAL.**
+   Write `(0 << TCA_SINGLE_WGMODE_gp)` to `TCA0_SINGLE_CTRLB`.
+4. **Enable the OVF interrupt.**
+   Write `TCA_SINGLE_OVF_bm` to `TCA0_SINGLE_INTCTRL`.
+5. **Start the timer: CLKSEL = DIV16, ENABLE = 1.**
+   Write `(4 << TCA_SINGLE_CLKSEL_gp) | TCA_SINGLE_ENABLE_bm` to
+   `TCA0_SINGLE_CTRLA`.
 
-First, correct this module: change `__vector_8` to `__vector_9` (both the `.global` and the label). The `address 0x12` confirms it — AVR vectors are spaced 2 bytes apart on this part (each is an `rjmp`/`jmp` slot), and vector 9 × 2 = 0x12. Consistent.
+Then `sei` to enable interrupts globally and `ret`.
 
-Now, what your calling program's vector table needs. The mechanism: at reset the CPU jumps to address 0x0000, where there's a table of jump instructions — one slot per vector, in vector-number order. Slot 0 is RESET, and slot 9 (at byte 0x12) must jump to your TCA0_OVF handler. Everything hinges on the handler's name matching what the table references.
+The ISR (`__vector_9` / `TCA0_OVF_handler`) does the minimum:
 
-You have two ways to wire it, and which you pick depends on how the rest of your class's programs are built.
-
-**Option A — the toolchain/CRT builds the table for you (recommended if you link against the standard AVR runtime).** The C runtime (`crt<device>.o`, pulled in automatically by avr-gcc) already contains a complete weak vector table. Each slot does an `rjmp` to a weak default symbol named `__vector_N`. By naming your ISR `.global __vector_9`, you *override* the weak default, and the prebuilt table's slot 9 now jumps to your handler. That's the whole point of the `__vector_9` naming in the module — it's designed to slot into the CRT's table with zero table code on your side.
-
-In this case your calling program does **nothing special** for the vector table. You just:
-- link normally with avr-gcc (so the CRT is included), and
-- make sure the object file with `__vector_9` is in the link.
-
-That's it. The `sei` in `init_sysclock_1k` enables interrupts globally; the table routing is already handled.
-
-**Option B — you hand-roll the vector table in pure assembly (if your class builds without the CRT, e.g. `-nostartfiles`).** Then you must write the table yourself at the start of `.text`, placed at address 0. It looks like this — a calling `main.S` skeleton:
-
-```asm
-#include <avr/io.h>
-
-; ---- Vector table at 0x0000 ----
-.section .vectors, "ax", @progbits
-.global __vectors
-__vectors:
-    rjmp  reset            ; vector 0  - RESET
-    rjmp  __bad_interrupt  ; 1
-    rjmp  __bad_interrupt  ; 2
-    rjmp  __bad_interrupt  ; 3
-    rjmp  __bad_interrupt  ; 4
-    rjmp  __bad_interrupt  ; 5
-    rjmp  __bad_interrupt  ; 6
-    rjmp  __bad_interrupt  ; 7
-    rjmp  __bad_interrupt  ; 8
-    rjmp  TCA0_OVF_handler ; 9  - TCA0 OVF   <-- the one you need
-    ; ... remaining slots can stay __bad_interrupt unless used
+```
+in     ISR_temp, CPU_SREG          ; save flags
+ldi    temp_16,  TCA_SINGLE_OVF_bm
+sts    TCA0_SINGLE_INTFLAGS, temp_16   ; W1C the OVF flag
+inc    ticks_lo
+brne   1f
+inc    ticks_hi
+1:
+out    CPU_SREG, ISR_temp
+reti
 ```
 
-A few things that matter for Option B on the AVR64DD32 specifically:
+Two AVR-Dx quirks worth calling out:
 
-The reset/vector base. On AVR-Dx parts the vector table location is controlled, and by default starts at 0x0000 in flash — but the device has the `IVSEL`/boot-vs-app section concept. For a flat single-section program loaded by Bloom this defaults correctly to 0, so a normal `.vectors` section at the start links right. If you've set any `BOOTSIZE`/`CODESIZE` fuses, that changes the base — worth a glance but not normally an issue for classroom flat builds.
+- **OVF is write-1-to-clear.** Unlike Timer0 on the ATtiny, the flag does not
+  auto-clear when the ISR runs; you must write `OVF_bm` back to `INTFLAGS`.
+- **`ticks()` does an atomic read.** `cli` / `movw r24, r8` / restore SREG —
+  otherwise a 16-bit read can tear across an overflow.
 
-`__bad_interrupt` conventionally jumps to the reset handler (or to a halt loop). If you're fully bare-metal you can define it as a `reti` or an `rjmp` to itself for a "trap unexpected interrupt" teaching behavior.
+---
 
-The table uses `rjmp` (2-byte slots), which matches your "address 0x12 for vector 9" — `rjmp` reach covers the whole AVR64DD32 flash so you don't need the 4-byte `jmp` form.
+## 3. Vector table wiring
 
-**Which one applies to you?** Your tiny13 module's comment — *"`__vector_6` overrides the CRT's weak symbol… `TIM0_COMPA_handler` is kept as an alias so pure-asm main.S vector tables still link"* — tells me you actually support **both** paths deliberately: the `__vector_N` name for CRT-linked C builds, and the readable alias (`TCA0_OVF_handler`) for pure-asm tables. The DD32 module already mirrors that, so you're covered either way. For Option A you reference `__vector_9` (automatic); for Option B your hand-written table references `TCA0_OVF_handler` (the alias), exactly as your tiny13 `main.S` references `TIM0_COMPA_handler`.
+This example is pure-asm (no `.c` source), so the Makefile sets
+`FREESTANDING=1` and the C runtime's weak vector table is not pulled in.
+`main.S` therefore declares its own `.vectors` section:
 
-So concretely, the only edit needed in the module is `8 → 9`. Let me make it:Now let me give you a complete `main.S` calling skeleton so you have a flashable example. I'll write it the pure-asm way (Option B) since that matches how your tiny13 `main.S` works with the alias — and it's the more instructive version for the class:Both files updated. The module now uses `__vector_9`, and `main_dd32.S` gives you the calling side with the hand-rolled vector table.
+```
+.section .vectors, "ax", @progbits
+    rjmp    reset_handler       ; 0x000  RESET
+    reti                        ; 0x001  NMI
+    ...
+    reti                        ; 0x008  PORTA_PORT
+    rjmp    TCA0_OVF_handler    ; 0x009  TCA0_OVF   <-- 9*2 = byte 0x12
+```
 
-The short answer to your question — what the calling program does to init the vectors — depends on which build path you use, and your tiny13 module shows you already support both:
+`sysclock.S` defines both `__vector_9` and a `TCA0_OVF_handler` alias on the
+same address, so the same module works either way:
 
-**Pure-asm build (the `main_dd32.S` I wrote):** the calling program *is* the vector table. The `.vectors` section at flash 0x0000 is a list of `rjmp` slots in vector-number order; slot 9 (byte 0x12, matching what your header told you) does `rjmp TCA0_OVF_handler`, routing the overflow to the ISR via its readable alias. Slots you don't use point at `__bad_interrupt`, which spins in place so a stray interrupt is visible under the debugger rather than silently resetting. Reset sets the stack pointer to RAMEND, calls `init_sysclock_1k`, and loops calling `ticks`.
+- **Freestanding asm (this example):** the table's `rjmp TCA0_OVF_handler`
+  goes to the alias.
+- **C-runtime build (any example with a `.c` file):** the linker pulls in the
+  CRT's weak vector table; `.global __vector_9` overrides slot 9's weak
+  default, and you write no `.vectors` section.
 
-**CRT-linked build (avr-gcc + standard runtime):** you do *nothing* for the table. The runtime already ships a complete weak vector table whose slot 9 jumps to the weak symbol `__vector_9`; because the ISR declares `.global __vector_9`, it overrides the weak default and the existing table now points at your handler. No `.vectors` section needed — `main` is just the stack setup, the `init` call, and the loop. This is the path the `__vector_9` naming exists for.
+Vector 9 sits at byte `0x12` because AVR-Dx vectors are 2-byte `rjmp` slots
+and `9 * 2 = 0x12`. Confirm the vector number against the header before
+trusting it:
 
-The slot count detail worth teaching: AVR-Dx vectors are 2-byte `rjmp` slots, which is why vector 9 sits at 0x12 (9 × 2). `rjmp` reaches across the whole 64 KB flash, so you never need the 4-byte `jmp` form on this part.
+```sh
+grep TCA0_OVF_vect /usr/lib/avr/include/avr/ioavr64dd32.h
+```
 
-Two things to confirm when you assemble, same caveats as before since I couldn't build it here:
+---
 
-The TCA0 symbol names (`TCA0_SINGLE_PERL`, `TCA0_SINGLE_CTRLA`, `TCA_SINGLE_CLKSEL_DIV16_gc`, etc.) — if avr-as rejects any flat `TCA0_SINGLE_*` name, paste `grep TCA0_SINGLE_CTRLA /path/to/ioavr64dd32.h` and I'll switch those to the exact symbols or numeric addresses your header uses.
+## 4. Build, flash, and observe
 
-`CPU_SPL`/`CPU_SPH`/`CPU_SREG` — these are the AVR-Dx names for the stack-pointer and status registers; if your header exposes them unprefixed (`SPL`/`SPH`/`SREG`), adjust the four `out`/`in` lines accordingly.
+```sh
+make flash         # build main.hex and upload
+```
 
-Once it assembles and flashes, the payoff ties back to your dashboard: set a breakpoint at `main_loop`, and students watch `r25:r24` climb about 1000 counts per second while the `AvrPeripheral` module shows `TCA0.CNT` cycling 0→249 and `TCA0.CTRLA` with the ENABLE bit set — the ISR, the timer, and the tick counter all visible at once over headless SSH.
+`main.S` loops: print `0xBB`, snapshot ticks, busy-wait `COUNTER` iterations,
+snapshot ticks again, print the delta in hex, print `0xEE`. The delta tells
+you how many tick interrupts fired during the busy wait. With the default
+`COUNTER = 30000` at 4 MHz, expect a delta near `0x65` (101); see
+`sysclock_timing.md` for the cycle-by-cycle derivation.
+
+---
+
+## 5. Watching TCA0 in `gdb-dashboard`
+
+The existing `avr_dashboard.py` already lists TCA0's registers in
+`AVR_PERIPHERALS`. With Bloom running:
+
+```sh
+avr-gdb main.elf
+(gdb) target remote :1442
+(gdb) break TCA0_OVF_handler
+(gdb) continue
+```
+
+At each break you see `TCA0.CNT` reset to 0, `TCA0.CTRLA` with `ENABLE` set,
+and `r9:r8` increment in the register pane. Step past the ISR to watch
+`INTFLAGS.OVF` clear after the W1C `sts`.
+
+To also display `INTFLAGS` and `INTCTRL`, add them to `AVR_PERIPHERALS`:
+
+```python
+AVR_PERIPHERALS = [
+    ("TCA0.CTRLA",    0x0A00, 1),
+    ("TCA0.CTRLB",    0x0A01, 1),
+    ("TCA0.CNT",      0x0A20, 2),
+    ("TCA0.PER",      0x0A26, 2),
+    ("TCA0.CMP2",     0x0A2C, 2),
+    ("TCA0.INTCTRL",  0x0A0A, 1),     # OVF interrupt enable
+    ("TCA0.INTFLAGS", 0x0A0B, 1),     # OVF flag (W1C)
+]
+
+AVR_BITFIELDS = {
+    "TCA0.CTRLA":    [(0, "ENABLE")],
+    "TCA0.CTRLB":    [(6, "CMP2EN"), (5, "CMP1EN"), (4, "CMP0EN")],
+    "TCA0.INTCTRL":  [(0, "OVF")],
+    "TCA0.INTFLAGS": [(0, "OVF")],
+}
+```
+
+---
+
+## 6. Changing the tick rate
+
+The OVF frequency is set by two knobs in `init_sysclock_1k`:
+
+```
+f_tick = F_CPU / (prescale * (PER + 1))
+```
+
+`PER` is the 16-bit `TCA0.SINGLE.PER` (max 65535). Prescale comes from the
+`CLKSEL` field in `TCA0.SINGLE.CTRLA`. The encoding:
+
+| `CLKSEL` value | Prescale |
+|----------------|----------|
+| 0              | /1       |
+| 1              | /2       |
+| 2              | /4       |
+| 3              | /8       |
+| 4              | /16      |
+| 5              | /64      |
+| 6              | /256     |
+| 7              | /1024    |
+
+Worked tick rates at `F_CPU = 4 MHz`:
+
+| Target rate | Prescale | PER  | Exact? | Notes                              |
+|-------------|----------|------|--------|------------------------------------|
+| 1 kHz       | /16      | 249  | exact  | **Default in `sysclock.S`**        |
+| 1 kHz       | /64      | 62   | no     | ~1.008 ms (~0.8% slow)             |
+| 1 kHz       | /64      | 63   | no     | ~1.024 ms (~2.4% slow)             |
+| 100 Hz      | /256     | 156  | exact  | 4 000 000 / (256 * 157) = 100.0    |
+| 10 kHz      | /4       | 99   | exact  | 4 000 000 / (4 * 100) = 10 000     |
+| 32 Hz       | /1024    | 122  | no     | useful for slow-blink demos        |
+
+To change the rate, edit two lines in `Library/sysclock.S`:
+
+1. The PER write (replace `249` with your new value):
+   ```
+   ldi  temp_16, lo8(NEW_PER)
+   sts  TCA0_SINGLE_PERL, temp_16
+   ldi  temp_16, hi8(NEW_PER)
+   sts  TCA0_SINGLE_PERH, temp_16
+   ```
+2. The CLKSEL field in the CTRLA write (replace `0x4` with the value from
+   the table):
+   ```
+   ldi  temp_16, (CLKSEL_VAL << TCA_SINGLE_CLKSEL_gp) | TCA_SINGLE_ENABLE_bm
+   sts  TCA0_SINGLE_CTRLA, temp_16
+   ```
+
+Then `make clean && make flash`.
+
+If you also bump `F_CPU` (e.g. switch to 24 MHz via CLKCTRL), re-derive PER
+with the formula above — the existing PER will be 6× too slow.
+
+When you change the rate, `r9:r8` still increments once per overflow, so the
+unit of `ticks()` changes too. If a downstream routine assumes "ticks =
+milliseconds," update it (or pick a PER/prescale that keeps the 1 ms unit).
+
+---
+
+## 7. Verification checklist
+
+| Symptom                                       | Likely cause                                          |
+|-----------------------------------------------|-------------------------------------------------------|
+| ISR never fires                               | Wrong vector slot, or `sei` missing                   |
+| ISR fires once, then never again              | `INTFLAGS.OVF` not cleared (forgot the W1C write)     |
+| Ticks count twice as fast as expected         | CLKSEL set to /8 instead of /16                       |
+| Delta is `0` every loop                       | `INTCTRL.OVF` not enabled                             |
+| Build fails on `TCA_SINGLE_CLKSEL_DIV16_gc`   | `*_gc` is a C enum — use `(4 << TCA_SINGLE_CLKSEL_gp)` |
+| Random delta values that don't match `COUNTER`| `ticks()` not atomic, or r8/r9 clobbered elsewhere     |
+
+For the exact tick-count math behind the 0x65 delta in `main.S`, see
+`sysclock_timing.md` — it walks the cycle accounting for the busy-wait loop
+plus the per-OVF ISR overhead.

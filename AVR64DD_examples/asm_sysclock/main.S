@@ -41,7 +41,8 @@
 ; r2        ISR_temp - ISR scratch (STATUS save) — do NOT use elsewhere
 ; r9:r8     ticks_hi/lo - global 16-bit ISR ticks counter — do NOT use elsewhere
 
-.equ    COUNTER, 30000          ; 30,000@1.2MHZ => 100ms delay
+.equ    COUNTER, 30000          ; 30,000 @ 4 MHz => ~30 ms delay (~30 ticks)
+                                ; see sysclock_timing.md for the derivation
 .equ    HEX_BEG, 0xBB           ; beginning of hex print
 .equ    HEX_END, 0xEE           ; end of hex print
 ; --------------------------------------------------------------------
