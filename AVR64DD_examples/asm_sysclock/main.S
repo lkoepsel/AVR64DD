@@ -11,19 +11,24 @@
 
 ; ====================================================================
 ;  INTERRUPT VECTOR TABLE
-;  AVR64DD32 vectors (2) required
+;  AVR64DD32 has 64 KB (32 K words) of flash -- MORE than 8 K words -- so
+;  each vector slot is 2 words (4 bytes) and must use JMP, not RJMP. Vector N
+;  therefore lives at byte offset N*4 (TCA0_OVF = vector 9 -> 0x24). Using
+;  rjmp/reti (2 bytes) here would misplace every vector past reset: reset
+;  still works (PC starts at 0), but interrupts would dispatch to the wrong
+;  address. Unused slots jmp to 0 (reset) as a bad-interrupt trap.
 ; ====================================================================
 .section .vectors, "ax", @progbits
-    rjmp    reset_handler       ; 0x000  RESET
-    reti                        ; 0x001  NMI
-    reti                        ; 0x002  BOD_VLM
-    reti                        ; 0x003  CLKCTRL
-    reti                        ; 0x004  MVIO_MVIO
-    reti                        ; 0x005  RTC_CNT
-    reti                        ; 0x006  RTC_PIT
-    reti                        ; 0x007  CCL_CCL
-    reti                        ; 0x008  PORTA_PORT
-    rjmp    TCA0_OVF_handler    ; 0x009  TCA0_OVF
+    jmp     reset_handler       ; 0x000  vector 0  RESET
+    jmp     0                   ; 0x004  vector 1  NMI
+    jmp     0                   ; 0x008  vector 2  BOD_VLM
+    jmp     0                   ; 0x00C  vector 3  CLKCTRL
+    jmp     0                   ; 0x010  vector 4  MVIO_MVIO
+    jmp     0                   ; 0x014  vector 5  RTC_CNT
+    jmp     0                   ; 0x018  vector 6  RTC_PIT
+    jmp     0                   ; 0x01C  vector 7  CCL_CCL
+    jmp     0                   ; 0x020  vector 8  PORTA_PORT
+    jmp     TCA0_OVF_handler    ; 0x024  vector 9  TCA0_OVF
 
 ; ====================================================================
 ;  TEXT SECTION  (executable code lives here)
@@ -42,7 +47,8 @@
 ; r9:r8     ticks_hi/lo - global 16-bit ISR ticks counter — do NOT use elsewhere
 
 .equ    COUNTER, 30000          ; 30,000 @ 4 MHz => ~30 ms delay (~30 ticks)
-                                ; see sysclock_timing.md for the derivation
+                                ; window must span many 1 ms ticks or the
+                                ; measured delta reads 0; see sysclock_timing.md
 .equ    HEX_BEG, 0xBB           ; beginning of hex print
 .equ    HEX_END, 0xEE           ; end of hex print
 ; --------------------------------------------------------------------

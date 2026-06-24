@@ -18,6 +18,7 @@ example directory, is a clean three-pane view halted at the reset vector:
 ── AVR Registers ───────────────────────────────────
 r18=0x15  r19=0xFA  r20=0x3B
 SREG = 0x00  [ i t h s v n z c ]      (UPPER=set, lower=clear)
+SP   = 0x7FFF
 PC   = 0x0014
 ```
 
@@ -25,10 +26,13 @@ PC   = 0x0014
 
 - **Curated registers, not all 32.** A small custom module (`AvrRegs`) shows
   only the registers a given program uses, plus a **decoded SREG** (`I T H S V
-  N Z C`, uppercase = set) and the **PC as a byte address** (matching the
-  disassembly — the AVR hardware PC is a *word* address, so they would
-  otherwise disagree by 2×). The register set is chosen **per example**: drop an
-  `avr_dashboard.py` next to the program's `main.S` (see below).
+  N Z C`, uppercase = set), the **SP**, and the **PC as a byte address**
+  (matching the disassembly — the AVR hardware PC is a *word* address, so they
+  would otherwise disagree by 2×). `SP` and `PC` show in **every** example's
+  dashboard; the working-register set is chosen **per example** by dropping an
+  `avr_dashboard.py` next to the program's `main.S` (see below). `SP` is handy
+  for catching an uninitialized stack (reads `0x0000`/a low address) versus a
+  healthy one near `RAMEND` that dips by 2 on each `rcall`/interrupt.
 - **Peripheral pane (per example).** A second module (`AvrPeripheral`) shows
   selected memory-mapped peripheral registers — the headless equivalent of
   Insight's peripheral view. An example lists them in its `avr_dashboard.py`

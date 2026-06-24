@@ -16,7 +16,7 @@ demo loop live in `main.S` in this directory.
 | Peripheral      | `TCA0` in SINGLE / NORMAL mode                           |
 | Counter width   | 16-bit (`TCA0.SINGLE.CNT`)                               |
 | Period register | `TCA0.SINGLE.PER` (counter resets to 0 on `CNT == PER`)  |
-| Interrupt       | `TCA0_OVF_vect` = `__vector_9` (byte 0x12 in vector table)|
+| Interrupt       | `TCA0_OVF_vect` = `__vector_9` (byte 0x24 in vector table)|
 | Tick storage    | `r9:r8` (`ticks_hi:ticks_lo`) — reserved globally        |
 | ISR scratch     | `r2` (`ISR_temp`) — reserved globally                    |
 | Default rate    | 1 kHz (1 ms) at 4 MHz `F_CPU`                            |
@@ -76,25 +76,33 @@ This example is pure-asm (no `.c` source), so the Makefile sets
 
 ```
 .section .vectors, "ax", @progbits
-    rjmp    reset_handler       ; 0x000  RESET
-    reti                        ; 0x001  NMI
+    jmp     reset_handler       ; 0x000  vector 0  RESET
+    jmp     0                   ; 0x004  vector 1  NMI       (bad-interrupt trap)
     ...
-    reti                        ; 0x008  PORTA_PORT
-    rjmp    TCA0_OVF_handler    ; 0x009  TCA0_OVF   <-- 9*2 = byte 0x12
+    jmp     0                   ; 0x020  vector 8  PORTA_PORT
+    jmp     TCA0_OVF_handler    ; 0x024  vector 9  TCA0_OVF  <-- 9*4 = byte 0x24
 ```
+
+> **Vector slots are 4 bytes (`jmp`) on this part, not 2 bytes (`rjmp`).**
+> On any AVR with **more than 8 K words** of flash, each interrupt vector is a
+> 2-word `jmp` (4 bytes), so vector N is at byte `N * 4`. The AVR64DD32 has
+> 64 KB = 32 K words of flash, so `TCA0_OVF` (vector 9) lives at `0x24`, **not**
+> `0x12`. Using `rjmp`/`reti` (2-byte) entries is a classic, hard-to-spot bug:
+> **reset still works** (PC starts at 0 and runs whatever instruction is there),
+> so the program appears to boot fine, but every *interrupt* dispatches to the
+> wrong address and the ISR silently never runs. Match the CRT — it uses `jmp`:
+> `avr-objdump -d crtavr64dd32.o` shows the `__vectors` entries spaced 4 apart.
 
 `sysclock.S` defines both `__vector_9` and a `TCA0_OVF_handler` alias on the
 same address, so the same module works either way:
 
-- **Freestanding asm (this example):** the table's `rjmp TCA0_OVF_handler`
+- **Freestanding asm (this example):** the table's `jmp TCA0_OVF_handler`
   goes to the alias.
 - **C-runtime build (any example with a `.c` file):** the linker pulls in the
   CRT's weak vector table; `.global __vector_9` overrides slot 9's weak
   default, and you write no `.vectors` section.
 
-Vector 9 sits at byte `0x12` because AVR-Dx vectors are 2-byte `rjmp` slots
-and `9 * 2 = 0x12`. Confirm the vector number against the header before
-trusting it:
+Confirm the vector number against the header before trusting it:
 
 ```sh
 grep TCA0_OVF_vect /usr/lib/avr/include/avr/ioavr64dd32.h
@@ -219,7 +227,8 @@ milliseconds," update it (or pick a PER/prescale that keeps the 1 ms unit).
 
 | Symptom                                       | Likely cause                                          |
 |-----------------------------------------------|-------------------------------------------------------|
-| ISR never fires                               | Wrong vector slot, or `sei` missing                   |
+| ISR never fires (but config + `SREG` `I` look right) | 2-byte `rjmp` vector slots — this part needs 4-byte `jmp` (vector N at `N*4`) |
+| ISR never fires                               | `sei` missing, or `INTCTRL.OVF` not enabled           |
 | ISR fires once, then never again              | `INTFLAGS.OVF` not cleared (forgot the W1C write)     |
 | Ticks count twice as fast as expected         | CLKSEL set to /8 instead of /16                       |
 | Delta is `0` every loop                       | `INTCTRL.OVF` not enabled                             |

@@ -17,7 +17,7 @@
 ;      the timer counts 0 -> PER, and fires OVF when it rolls over.
 ;    * TCA0 registers are memory-mapped (use lds/sts), NOT low I/O.
 ;      Only a handful of CPU regs (SREG, SP) still use in/out.
-;    * The interrupt vector is TCA0_OVF_vect = __vector_8 on this device.
+;    * The interrupt vector is TCA0_OVF_vect = __vector_9 on this device.
 ;      VERIFY this number against your header (see note below) before relying
 ;      on it -- vector numbers are device-specific.
 ;

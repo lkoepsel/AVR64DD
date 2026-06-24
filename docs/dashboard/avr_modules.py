@@ -145,6 +145,15 @@ class AvrRegs(Dashboard.Module):
             shown = ' '.join(n if (sreg & b) else n.lower() for n, b in flags)
             out.append('SREG = 0x{:02X}  [ {} ]'.format(sreg, shown))
 
+        # --- stack pointer (DATA-space address) ---
+        # gdb provides 'sp' generically. After reset a freestanding handler must
+        # load SP itself: if this reads 0x0000 (or some low reg/IO address) the
+        # stack was never set up -- rcall/push/interrupt return all corrupt.
+        # A healthy SP sits up near RAMEND and dips a little inside calls/ISRs.
+        sp = _read_reg('sp')
+        if sp is not None:
+            out.append('SP   = 0x{:04X}'.format(sp & 0xFFFF))
+
         # --- program counter (byte address, matches the assembly window) ---
         # frame.pc() returns the byte code address (e.g. 0x12), not the AVR
         # hardware PC's word address (0x09) -- so it lines up with disassembly.
