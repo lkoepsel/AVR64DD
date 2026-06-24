@@ -86,12 +86,21 @@ This example is pure-asm (no `.c` source), so the Makefile sets
 > **Vector slots are 4 bytes (`jmp`) on this part, not 2 bytes (`rjmp`).**
 > On any AVR with **more than 8 K words** of flash, each interrupt vector is a
 > 2-word `jmp` (4 bytes), so vector N is at byte `N * 4`. The AVR64DD32 has
-> 64 KB = 32 K words of flash, so `TCA0_OVF` (vector 9) lives at `0x24`, **not**
-> `0x12`. Using `rjmp`/`reti` (2-byte) entries is a classic, hard-to-spot bug:
+> 64 KB = 32 K words of flash, so `TCA0_OVF` (vector 9) lives at byte `0x24`.
+> Using `rjmp`/`reti` (2-byte) entries is a classic, hard-to-spot bug:
 > **reset still works** (PC starts at 0 and runs whatever instruction is there),
 > so the program appears to boot fine, but every *interrupt* dispatches to the
 > wrong address and the ISR silently never runs. Match the CRT — it uses `jmp`:
 > `avr-objdump -d crtavr64dd32.o` shows the `__vectors` entries spaced 4 apart.
+>
+> **Word vs. byte addresses — don't get tripped up.** Datasheet Table 9-3
+> ("Interrupt Vector Mapping") lists `TCA0_OVF` at `0x12`, but that column is
+> headed **Program Address (*word*)**. The AVR is a 16-bit-word machine, so the
+> datasheet tabulates vectors in *words*, while the toolchain (`avr-objdump`,
+> the `.vectors` layout, gdb) uses *byte* addresses. Convert with ×2:
+> **word `0x12` = byte `0x24`** — the two are the same location, not a conflict.
+> The table also confirms the slot size: its word addresses step by `0x02`
+> (= 2 words = 4 bytes) per vector.
 
 `sysclock.S` defines both `__vector_9` and a `TCA0_OVF_handler` alias on the
 same address, so the same module works either way:
