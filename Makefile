@@ -195,7 +195,7 @@ all_clean:
 
 ## Run clean in every example folder under examples/
 clean_all:
-	@for d in $(DEPTH)examples/*/; do \
+	@for d in $(DEPTH)AVR64DD_examples/*/; do \
 		if [ -f "$$d"Makefile ] || [ -f "$$d"makefile ]; then \
 			$(MAKE) --no-print-directory -C "$$d" clean; \
 		else \

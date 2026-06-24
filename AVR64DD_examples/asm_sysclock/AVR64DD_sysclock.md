@@ -16,7 +16,7 @@ demo loop live in `main.S` in this directory.
 | Peripheral      | `TCA0` in SINGLE / NORMAL mode                           |
 | Counter width   | 16-bit (`TCA0.SINGLE.CNT`)                               |
 | Period register | `TCA0.SINGLE.PER` (counter resets to 0 on `CNT == PER`)  |
-| Interrupt       | `TCA0_OVF_vect` = `__vector_9` (byte 0x24 in vector table)|
+| Interrupt       | `TCA0_OVF_vect` = `__vector_9` (**byte 0x24** in vector table)|
 | Tick storage    | `r9:r8` (`ticks_hi:ticks_lo`) — reserved globally        |
 | ISR scratch     | `r2` (`ISR_temp`) — reserved globally                    |
 | Default rate    | 1 kHz (1 ms) at 4 MHz `F_CPU`                            |
@@ -70,9 +70,8 @@ Two AVR-Dx quirks worth calling out:
 
 ## 3. Vector table wiring
 
-This example is pure-asm (no `.c` source), so the Makefile sets
-`FREESTANDING=1` and the C runtime's weak vector table is not pulled in.
-`main.S` therefore declares its own `.vectors` section:
+This example is pure-asm (no `.c` source), so the Makefile sets `FREESTANDING=1`.
+`main.S` declares its own `.vectors` section:
 
 ```
 .section .vectors, "ax", @progbits
@@ -93,7 +92,7 @@ This example is pure-asm (no `.c` source), so the Makefile sets
 > wrong address and the ISR silently never runs. Match the CRT — it uses `jmp`:
 > `avr-objdump -d crtavr64dd32.o` shows the `__vectors` entries spaced 4 apart.
 >
-> **Word vs. byte addresses — don't get tripped up.** Datasheet Table 9-3
+> **Word vs. byte addresses.** Datasheet Table 9-3
 > ("Interrupt Vector Mapping") lists `TCA0_OVF` at `0x12`, but that column is
 > headed **Program Address (*word*)**. The AVR is a 16-bit-word machine, so the
 > datasheet tabulates vectors in *words*, while the toolchain (`avr-objdump`,
@@ -107,15 +106,14 @@ same address, so the same module works either way:
 
 - **Freestanding asm (this example):** the table's `jmp TCA0_OVF_handler`
   goes to the alias.
-- **C-runtime build (any example with a `.c` file):** the linker pulls in the
-  CRT's weak vector table; `.global __vector_9` overrides slot 9's weak
-  default, and you write no `.vectors` section.
+
 
 Confirm the vector number against the header before trusting it:
-
 ```sh
 grep TCA0_OVF_vect /usr/lib/avr/include/avr/ioavr64dd32.h
 ```
+
+Or for a [local version of the header](../../docs/ioavr64dd32.md), *Ctrl/Cmd-F* to find.
 
 ---
 
@@ -128,8 +126,7 @@ make flash         # build main.hex and upload
 `main.S` loops: print `0xBB`, snapshot ticks, busy-wait `COUNTER` iterations,
 snapshot ticks again, print the delta in hex, print `0xEE`. The delta tells
 you how many tick interrupts fired during the busy wait. With the default
-`COUNTER = 30000` at 4 MHz, expect a delta near `0x65` (101); see
-`sysclock_timing.md` for the cycle-by-cycle derivation.
+`COUNTER = 30000` at 4 MHz, expect a delta near `0x1e` (30 ticks at 1ms ticks); see `sysclock_timing.md` for the cycle-by-cycle derivation.
 
 ---
 
