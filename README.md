@@ -3,10 +3,6 @@
 Notes as to developing C and assembly code for the Microchip AVR64DD. 
 ![AVR64DD32_Curiosity_Nano](./AVR64DD32_Curiosity_Nano.pdf)
 
-> **Note:** this README is being rewritten from its ATtiny13A origins to the
-> AVR64DD32. Sections below that still reference the ATtiny13A are pending
-> migration.
-
 ## AVR64DD32 Curiosity Nano — Quick Notes
 
 A running scratchpad of board/chip gotchas worth remembering.
@@ -32,11 +28,11 @@ Curiosity Nano User Guide §4.2.4 (24 MHz crystal).
 ## Introduction
 This repository provides example programs in [*C* (ANSI C99, AVR-LibC)](https://github.com/avrdudes/avr-libc) and [*AVR assembly language*](https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf) for the Microchip **AVR64DD32**, targeting the [*AVR64DD32 Curiosity Nano*](./documentation/AVR64DD32CNANO-Prel-HW-UserGuide-DS50003323.pdf) evaluation board. The same examples apply to the closely related **AVR64DD28** with a one-line change in *env.make*. To use this framework you need a recent *GNU AVR* toolchain (*avr-gcc* / *avr-libc*) new enough to know the AVR-Dx parts; current packages on *Linux*, *macOS*, and *Windows* include them, so no separate device pack is required.
 
-Example programs live under [`AVR64DD_examples`](./AVR64DD_examples). (The [`ATtiny13A_examples`](./ATtiny13A_examples) folder is legacy from this project's origins and is being phased out.) Each subfolder is a *C*, *assembly*, or *mixed C/assembly* example. *C* and *mixed* examples use `main.c` as the principal program; *assembly* examples are named with an `asm_` prefix (e.g. `asm_blink`) and use `main.S`. A single root `Makefile` builds all three kinds — it auto-detects whether to link freestanding (*assembly*, no C runtime) or with the *C runtime*. The standard *make* targets (`make`, `make flash`, `make size`, …) work in every example folder.
+Example programs live under [**examples**](./AVR64DD_examples). Each subfolder is a *C*, *assembly*, or *mixed C/assembly* example. *C* and *mixed* examples use `main.c` as the principal program; *assembly* examples are named with an `asm_` prefix (e.g. `asm_blink`) and use `main.S`. A single root `Makefile` builds all three kinds — it auto-detects whether to link freestanding (*assembly*, no C runtime) or with the *C runtime*. The standard *make* targets (`make`, `make flash`, `make size`, …) work in every example folder.
 
 The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = pkobn_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
-For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end. (The older ATtiny13A-oriented notes are under [Using Bloom and avr-gdb](#using-bloom-and-avr-gdb).)
+For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end.
 
 ## Debugging the AVR64DD32 with Bloom and avr-gdb
 
@@ -63,8 +59,6 @@ environments:
       name: "avr_gdb_rsp"
       ip_address: "127.0.0.1"
       port: 1442
-    insight:
-      activate_on_startup: true
 ```
 
 - **`tool` / `target` / `physical_interface: updi`** — drive the on-board nEDBG
@@ -105,10 +99,12 @@ terminal workflow (curated registers, centered disassembly, `mon rr`/`mon wr`).
 
 ## Local Documentation (in the repo folder [documentation](./documentation))
 
-### AVR and ATtiny13A Details
-* [ATTiny13A Datasheet](./documentation/ATtiny13A-Data-Sheet-DS40002307A.pdf)
-* [AVR Instruction Set](./documentation/AVR-Instruction-Set-Manual.pdf)
-* [AVR C Library User Manual](./documentation/avr-libc-user-manual-2.2.0.pdf)
+### AVR64DD32 and Curiosity Nano Details
+* [AVR64DD32/28 Datasheet](./documentation/AVR64DD32-28-Complete-DataSheet-DS40002315.pdf)
+* [AVR Instruction Set](./documentation/AVR-InstructionSet-Manual-DS40002198.pdf)
+* [AVR C Library User Manual](./documentation/avr-libc-user-manual-2.3.0.pdf)
+* [Curiosity Nano pinout](./documentation/AVR64DD32_Curiosity_Nano.png)
+* [Curiosity Nano DataSheet](./documentation/AVR64DD32CNANO-Prel-HW-UserGuide-DS50003323.pdf)
 
 ### Compilers, Debuggers
 * [GNU gcc User Manual (C Compiler)](./documentation/gcc_15.pdf)
@@ -127,20 +123,19 @@ terminal workflow (curated registers, centered disassembly, `mon rr`/`mon wr`).
 * [AVR Inline Assembly](./documentation/arduinoinlineassembly.pdf)
 
 ### Application Notes
+* [Getting Started with the DD Family](./documentation/AN4875-Getting-Started-AVR-DD-Family-DS00004875.pdf)
+* [Migration from megaAT](./documentation/Migration-from-megaAVR-to-AVR-DxMCU-Fam-DS00003731A.pdf)
 * [Getting Started Writing C for AVR](./documentation/AVR1000b-Getting-Started-Writing-C-Code-for-AVR-DS90003262B.pdf)
 * [AVR Efficient C Coding](./documentation/Atmel-AVR035-Efficient-C-Coding.pdf)
 * [AVR Accessing the EEPROM](./AVR100_doc0932.pdf)
 
 ## Online Documentation
 
-* [Microchip ATtiny13A](https://www.microchip.com/en-us/product/attiny13a)
-* [ATtiny13A-Data-Sheet-DS40002307A](https://ww1.microchip.com/downloads/en/DeviceDoc/ATtiny13A-Data-Sheet-DS40002307A.pdf) 
+* [Microchip AVR64DD32](https://www.microchip.com/en-us/product/AVR64DD32)
 * [*C* (ANSI C99) AVR-LibC](https://github.com/avrdudes/avr-libc)
 * [GDB Online Manual](https://sourceware.org/gdb/current/onlinedocs/gdb.html/index.html#Top) 
 * [Bloom Documentation](https://bloom.oscillate.io/docs/getting-started)
-* [Bloom Target Information](https://bloom.oscillate.io/docs/target/attiny13a)
-* [Arduino Sensors](https://arduinomodules.info) inexpensive modules to interface to the *ATtiny13A*
-* [Arduino Compatible MicroCore for ATtiny](https://github.com/MCUdude/MicroCore/) *not used in this project, however, it might be of interest*
+* [Bloom Target Information](https://bloom.oscillate.io/docs/target/avr64dd32)
 
 ## docs
 
@@ -155,11 +150,8 @@ This page contains the files needed to be more efficient with *VS Code*. Install
 #### [git.md](./docs/git.md)
 Notes on using *git*. I am neither an expert on *git* nor proficient in *git*. This page is primarily for myself, however, it has helped a few people.
 
-#### [RPI_build.md](https://github.com/lkoepsel/AVR_C/blob/main/docs/RPi_build.md) - see this  in the AVR_C repository
-If you want to use a Raspberry Pi (3/4/5) as a C development platform, this page is for you! Highly detailed, it will show every step required to build the latest software for developing C on an AVR microcontroller. Have fun! 
-
 #### [bloom and gdb.md](./docs/bloomandgdb.md)
-Given the ATtiny13A requires a hardware interface to load software, I recommend using *bloom* as the interface to avr-gdb. This provides loading and debugging capability, which is required to be successful. 
+Given the AVR64DD32 requires a hardware interface to load software, I recommend using *bloom* as the interface to avr-gdb. This provides loading and debugging capability, which is required to be successful. 
 
 #### [gdb-dashboard.md](./docs/gdb-dashboard.md)
 Headless terminal debugging for the AVR64DD32 with *gdb-dashboard* + *Bloom* — the SSH/Raspberry-Pi alternative to Bloom Insight. Curated AVR register view, centered disassembly, auto-connect. Config files in [`docs/dashboard/`](./docs/dashboard).
@@ -192,151 +184,8 @@ avrdude -p 64dd32 -P usb -c pkobn_updi -t
 
 * **complete**: Cleans out all .o files and recompiles
 * **size**: Shows the size of program and memory
-* **flash**: Uploads program to *ATtiny13A*
+* **flash**: Uploads program to *AVR64DD32*
 
-## Troubleshooting
-
-**"Device signature = 0x000000" error:**
-- Check wiring connections
-- Verify power supply
-- Try slower programming speed: ```-B 10```
-
-**"Initialization failed" error:**
-- Ensure programmer drivers are installed
-- Check USB connection
-- Verify programmer type in avrdude command
-
-**LED not blinking:**
-- Verify LED polarity and resistor value
-- Check if correct pin is used in code
-- Ensure F_CPU matches actual clock frequency
-
-### Alternative Programmer Types for Atmel-ICE
-The Atmel-ICE supports multiple programming modes:
-- **ISP mode**: ```-c atmelice_isp```
-- **debugWIRE**: ```-c atmelice_dw```
-
-### Voltage Settings
-The **SNAP programmer doesn't provide target power**, so you must power the ATtiny13A externally. The Atmel-ICE can provide power, but it's often better to use external power.
-
-## Troubleshooting Specific to These Programmers
-
-### Atmel-ICE Issues
-- **"No Atmel-ICE units found"**: Check USB drivers, may need to install **libusb** on Linux
-- **Connection issues**: Try adding ```-B 10``` to slow down ISP clock
-- **Permission errors on Linux**: Add udev rules or run with sudo
-
-### SNAP Issues
-- **"Cannot find SNAP"**: Update to latest AVRDUDE version
-- **Power issues**: Remember SNAP doesn't supply power - **external power required**
-- **Slower programming**: SNAP can be slower than other programmers; this is normal
-
-### Linux USB Permissions
-For both programmers on Linux, you may need to add udev rules:
-
-Create ```/etc/udev/rules.d/99-atmel.rules```:
-```bash
-# Atmel-ICE
-SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2141", MODE="0666"
-
-# Microchip SNAP
-SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="2180", MODE="0666"
-```
-
-Then reload rules:
-```bash
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-
-## Understanding the ATtiny13A Clock frequencies
-
-The ATtiny13A has an internal RC oscillator that can run at either 4.8MHz or 9.6MHz. There is a clock divider (CLKDIV8) that is enabled by default from the factory, which divides the clock by 8. So:
-
-- Default factory setting: 9.6MHz oscillator with CLKDIV8 enabled = 1.2MHz system clock or *1.2MHz is the default system clock frequency after the divider*
-
-The oscillator runs at 9.6MHz but the system clock is 1.2MHz by default due to the divider.
-
-To run at 9.6MHz, you need to:
-1. Keep the oscillator at 9.6MHz (which is already the default)
-2. Disable the CLKDIV8 fuse
-
-### ATtiny13A Clock System Explanation
-
-The **ATtiny13A** has an internal RC oscillator that runs at either:
-- **9.6MHz** (default oscillator setting)
-- **4.8MHz** (alternative setting)
-
-However, there's a crucial detail: the **CLKDIV8 fuse is programmed by default** from the factory, which divides the clock by 8.
-
-- **Default from factory**: 9.6MHz ÷ 8 = **1.2MHz system clock**
-
-## Fuse Settings for Different Frequencies
-
-### Low Fuse (Default: 0x6A)
-| Bit | Default | Name | Description |
-|-----|---------|------|-------------|
-| 7 | 0 | SPIEN | SPI programming enabled (programmed) |
-| 6 | 1 | EESAVE | Preserve EEPROM memory through Chip Erase |
-| 5 | 1 | WDTON | Watchdog Timer always on |
-| 4 | 0 | CKDIV8 | Divide clock by 8 |
-| 3 | 1 | SUT1 | Start-up time |
-| 2 | 0 | SUT0 | Start-up time |
-| 1 | 1 | CKSEL1 | Select clock source |
-| 0 | 0 | CKSEL0 | Select clock source |
-
-### To Run at 9.6MHz System Clock
-
-```bash
-## write CLKDIV8 (bit 4) a 1 meaning unprogrammed, in this case DWEN (bit 3 H fuse) was already programmed
-avrdude -c snap_isp -p attiny13a -U lfuse:w:0x7A:m -U hfuse:w:0xF7:m
-```
-
-### To Run at 1.2MHz System Clock (Factory Default)
-This command will also "deprogram" or "set" the DWEN (*Hfuse: Bit 3*) nfuse, which will allow the RESET pin to operate properly. Bloom will clear the bit, which puts the ATtiny into DEBUG mode.
-
-```bash
-avrdude -c snap_isp -p attiny13a -U lfuse:w:0x6A:m -U hfuse:w:0xFF:m
-```
-### To Confirm or See Fuse Values
-
-```bash
-# read the fuses back
-avrdude -c snap_isp -p attiny13a -U lfuse:r:-:h -U hfuse:r:-:h
-# be sure to set CPU speed in env.make to 9600000UL
-```
-
-### Compile for 9.6MHz
-
-Update the Makefile:
-```makefile
-F_CPU = 9600000UL  # 9.6MHz instead of 1200000UL
-```
-
-**Default factory values:**
-- Low Fuse: **0x6A**
-- High Fuse: **0xFF**
-
-### Complete Fuse Reference for Clock Speed
-
-| Clock Speed | Low Fuse | CLKDIV8 | Oscillator |
-|-------------|----------|----------|------------|
-| 9.6MHz      | 0x7A     | Disabled | 9.6MHz     |
-| 4.8MHz      | 0x79     | Disabled | 4.8MHz     |
-| 1.2MHz      | 0x6A     | Enabled  | 9.6MHz÷8   |
-| 600kHz      | 0x69     | Enabled  | 4.8MHz÷8   |
-
-## Important Notes
-
-1. **F_CPU must match actual clock**: If you set fuses for 9.6MHz but compile with F_CPU=1200000UL, delays will be **8 times faster** than expected
-
-2. **Power consumption**: Higher clock speeds consume more power
-
-3. **Voltage requirements**: At higher frequencies, ensure adequate voltage (see datasheet for speed grades)
-
-4. **After changing fuses**: The new clock speed takes effect immediately, so subsequent programming operations will use the new speed
-
-The confusion often arises because Atmel/Microchip ships the chips with **CLKDIV8 enabled by default** for compatibility and lower power consumption, even though the oscillator itself runs at 9.6MHz.
 
 ## Helpful Files
 
@@ -413,7 +262,7 @@ The confusion often arises because Atmel/Microchip ships the chips with **CLKDIV
 ```
 
 ## Using Bloom and avr-gdb
-[Bloom and ATtiny13A](https://bloom.oscillate.io/docs/target/attiny13a)
+[Bloom and AVR64DD32](https://bloom.oscillate.io/docs/target/avr64dd32)
 
 ### .gdbinit - place in home folder
 
@@ -494,7 +343,7 @@ Assuming you have setup ~/.gdbinit from above, once gdb has started, there will 
 1. Top window is your main.c or main.S listing
 2. Bottom window is the command window with the (gdb) prompt
 
-At this point, the program has been loaded into the *ATtiny13A* and it is ready to run:
+At this point, the program has been loaded into the *AVR64DD32* and it is ready to run:
 
 * `c` to run
 * *Ctrl-c* to stop
@@ -616,7 +465,7 @@ Register written
 
 ## tio setup
 
-For the ATtiny13A using hexadecimal data, use `tio hex`, to see ASCII data, use `tio ascii`
+For the AVR64DD32 using hexadecimal data, use `tio cnh`, to see ASCII data, use `tio cna`
 
 ```
 # default is for AVR_C Uno-type boards
@@ -641,21 +490,15 @@ pattern = ^usb([0-9]*)
 device = /dev/ttyUSB%m1
 color = 14
 
-# flashforth ATmega328P at 250000
-[forth]
-device = /dev/ttyUSB0
-color = 12
-auto-connect = latest
-
-# ATtiny13A boards/circuits, hex output
-[hex]
-device = /dev/ttyUSB0
+# AVR64DD32 boards/circuits, hex output
+[cnh]
+device = /dev/ttyACM0
 output-mode = hex
 baudrate = 9600
 
-# ATtiny13A boards/circuits, ascii output
-[ascii]
-device = /dev/ttyUSB0
+# AVR64DD32 boards/circuits, ascii output
+[cna]
+device = /dev/ttyACM0
 baudrate = 9600
 ```
 
@@ -664,7 +507,7 @@ baudrate = 9600
 ### .clangd (macOS version)
 
 ```
-# clangd configuration for the AVR / ATtiny13A C examples (examples/*/main.c).
+# clangd configuration for the AVR / AVR64DD32 C examples (examples/*/main.c).
 # macOS version
 # clangd uses avr-gcc as the reference compiler to discover the AVR system
 # headers automatically (no version-pinned paths to maintain). This requires
@@ -677,10 +520,10 @@ CompileFlags:
     # `-std=gnu99` with "invalid argument not allowed with ObjectiveC".
     - -xc
     - --target=avr
-    - -mmcu=attiny13a
-    - -D__AVR_ATtiny13A__
+    - -mmcu=avr64dd32
+    - -D__AVR_AVR64DD32__
     - -std=gnu99
-    - -DF_CPU=1200000UL
+    - -DF_CPU=4000000UL
     # Absolute path: clangd resolves relative -I entries against the source
     # file's directory, not against .clangd's directory, so a relative path
     # would only work for files at the repo root.
@@ -727,7 +570,7 @@ the clangd args:
 ### .clangd (Linux version)
 
 ```
-# clangd configuration for the AVR / ATtiny13A C examples (examples/*/main.c).
+# clangd configuration for the AVR / AVR64DD32 C examples (examples/*/main.c).
 # Linux version
 # clangd uses avr-gcc as the reference compiler to discover the AVR system
 # headers automatically (no version-pinned paths to maintain). This requires
@@ -740,8 +583,8 @@ CompileFlags:
     # `-std=gnu99` with "invalid argument not allowed with ObjectiveC".
     - -xc
     - --target=avr
-    - -mmcu=attiny13a
-    - -D__AVR_ATtiny13A__
+    - -mmcu=avr64dd32
+    - -D__AVR_AVR64DD32__
     - -std=gnu99
     - -DF_CPU=1200000UL
     # Absolute path: clangd resolves relative -I entries against the source
@@ -757,158 +600,3 @@ Diagnostics:
   UnusedIncludes: None
   MissingIncludes: None
 ```
-
-## Multiplex ATtiny13A pin (Claude Recommendation)
-### Context Provided
-I wish to multiplex an AVR ATtiny13A pin. Provide a circuit example where the microcontroller has a pin being used as both input and output. For example, I want to measure temperature with a thermistor then light an LED based on the thermistor value, with both the thermistor and led will be on the same pin.  Explain via a circuit analysis, that the thermistor won’t be affected when the LED is lit and the LED won’t light when the thermistor is being measured via the ADC of the ATtiny13A pin.
-
-### Claude 4 Response
-To multiplex a pin on the ATtiny13A for both input (thermistor measurement) and output (LED control), you can use a clever circuit design that ensures the thermistor and LED do not interfere with each other. Below is an example circuit and explanation of how it works.
-
----
-
-### **Circuit Design**
-1. **Components**:
-   - **Thermistor**: Connected in a voltage divider configuration with a resistor.
-   - **LED**: Connected in series with a current-limiting resistor.
-   - **ATtiny13A Pin**: Configured as an ADC input for the thermistor and as an output to drive the LED.
-
-The 74HC4053 is a triple 2:1 analog multiplexer/demultiplexer. It has three independent switches, each with two inputs and one output. The user only needs one of these switches for their application.
-
-## **What the 74HC4053 Is:**
-It contains **three independent 2-to-1 switches** (like three SPDT switches). One switch is required for this application.
-
-## **Simplified Connection for the Circuit:**
-
-```
-                    74HC4053
-                 +------------+
-Thermistor-R1 ---|Y0       COM|--- To ADC Pin
-                 |            |
-LED-R2 ----------|Y1        S |--- To GPIO (Select)
-                 |            |
-GND -------------|INH      VCC|--- 5V
-                 |            |
-GND -------------|VEE      GND|--- GND
-                 +------------+
-```
-
-## **How It Works:**
-
-**Pin Functions:**
-- **Y0, Y1**: The two inputs being switched
-- **COM**: Common output (connects to either Y0 or Y1)
-- **S**: Select pin (LOW = Y0, HIGH = Y1)
-- **INH**: Inhibit (tie to GND to enable the switch)
-- **VEE**: Negative supply (tie to GND for single supply)
-
-**Operation:**
-- When **S = LOW**: COM connects to Y0 (thermistor circuit)
-- When **S = HIGH**: COM connects to Y1 (LED circuit)
-
-## **Your Complete Circuit:**
-```
-    5V                          5V
-     |                           |
-Thermistor                      VCC
-     |                           |
-     +----------Y0          74HC4053
-     |           |               |
-   [10k]        COM-----ADC Pin  |
-     |           |               |
-    GND         Y1               |
-                 |               |
-                LED              |
-                 |               |
-              [330Ω]             |
-                 |               |
-                GND              |
-                                 |
-    GPIO Pin----S                |
-                                 |
-    GND--------INH, VEE, GND-----+
-```
-
-
-## **CD74HCT4053B Complete Pinout**
-
-* [TI CD74HCT4053B Datasheet](https://www.ti.com/lit/ds/symlink/cd74hct4053.pdf?ts=1749252478329&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FCD74HCT4053)
-* [TI CD74HCT4053](https://www.ti.com/product/CD74HCT4053)
-```
-                  CD74HCT4053B (16-pin PDIP)
-                    +--------U--------+
-       LED ---------|1  B1      VCC 16|------- 5V
-                    |                 |
-   Thermistor/10k --|2  B0       A1 15|------- NC
-                    |                 |
-              NC ---|3  C1       A0 14|------- NC
-                    |                 |
-              NC ---|4  C0    COM A 13|------- NC
-                    |                 |
-              NC ---|5  COM C COM B 12|------- ADC Pin
-                    |                 |
-             GND ---|6  INH      SA 11|------- NC
-                    |                 |
-             GND ---|7  VEE      SB 10|------- GPIO (Select)
-                    |                 |
-             GND ---|8  GND      SC  9|------- NC
-                    +-----------------+
-```
-
-## **Pin Connections Summary:**
-
-| Pin | Name | Connection |
-|-----|------|------------|
-| 1   | B1   | **LED anode** |
-| 2   | B0   | **Thermistor/10k junction** |
-| 3   | C1   | NC |
-| 4   | C0   | NC |
-| 5   | COM C| NC |
-| 6   | INH  | **GND** (enables all switches) |
-| 7   | VEE  | **GND** (for single supply) |
-| 8   | GND  | **GND** |
-| 9   | SC   | NC |
-| 10  | SB   | **GPIO Select Pin** |
-| 11  | SA   | NC |
-| 12  | COM B| **ADC Pin** |
-| 13  | COM A| NC |
-| 14  | A0   | NC |
-| 15  | A1   | NC |
-| 16  | VCC  | **5V** |
-
-**Control Logic:**
-- When **SB = LOW**: COM B connects to B0 (thermistor)
-- When **SB = HIGH**: COM B connects to B1 (LED)
-
-**Notes:**
-- Using only the B channel (pins 1, 2, 10, 12)
-- Channels A and C are unused
-- INH must be LOW to enable operation
-
-
-**Software Control:**
-```c
-// Read temperature
-digitalWrite(SELECT_PIN, LOW);  // Connect thermistor
-int temp = analogRead(ADC_PIN);
-
-// Control LED
-digitalWrite(SELECT_PIN, HIGH); // Connect LED
-pinMode(ADC_PIN, OUTPUT);
-digitalWrite(ADC_PIN, HIGH);    // LED on
-```
-
-**Key Benefits:**
-- **Complete isolation** between circuits
-- **No voltage limitations**
-- **No power waste**
-- **Bidirectional** - can pass analog or digital signals
-
-## Additional Elements 
-
-* [CR2025 Vs CR2032 Batteries – Are They Interchangeable? | Battery Tools](https://batterytools.net/what-is-the-difference-between-2032-and-2025-batteries/)
-* [Lithium Ion Polymer Battery with Short Cable - 3.7V 420mAh : ID 4236 : Adafruit Industries, Unique & fun DIY electronics and kits](https://www.adafruit.com/product/4236)
-* [Overview | Sipping Power With NeoPixels | Adafruit Learning System](https://learn.adafruit.com/sipping-power-with-neopixels)
-* [NeoPixel RGBW Mini Button PCB - Pack of 10 : ID 4776 : Adafruit Industries, Unique & fun DIY electronics and kits](https://www.adafruit.com/product/4776)
-* [Using the RESET pin on Startup](https://sites.google.com/site/wayneholder/using-the-avr-reset-pin-as-an-input)
-

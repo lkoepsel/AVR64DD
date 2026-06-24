@@ -5,9 +5,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## What this is
 
 A collection of bare-metal AVR example programs — C (AVR-LibC, C99) and AVR
-assembly — primarily targeting the **AVR64DD32** (Curiosity Nano board) with a
-parallel set of older **ATtiny13A** examples. There is no application; each
-example directory is an independent, flashable firmware. The value is in the
+assembly — targeting the **AVR64DD32** (Curiosity Nano board) with a
+set of examples. There is no application; each example directory is an independent, flashable firmware. The value is in the
 shared build system and the hand-written assembly library, not in any single
 program.
 
@@ -37,8 +36,7 @@ the repo root): `make static` runs cppcheck for `--platform=avr8` into
 There is **no test suite** — verification is "does it build and run on the
 chip." The closest thing to CI is `make build_all` (clean + build every
 example, report failures) and `make clean_all`. ⚠️ Both targets glob
-`$(DEPTH)examples/*/`, but the actual example directories are
-`ATtiny13A_examples/` and `AVR64DD_examples/`, so they currently match nothing
+`$(DEPTH)examples/*/`, but the actual example directory is only examples/`, so it currently matches nothing
 — treat these targets as stale until the path is fixed.
 
 ## How the build system fits together
@@ -100,5 +98,5 @@ with avrdude to avoid churning the DWEN fuse (see README).
 
 The `documentation/` folder holds local PDFs (AVR64DD datasheet, instruction
 set, avr-libc manual, gcc/gdb/as manuals, Curiosity Nano user guide). The README
-is extensive but written around the older ATtiny13A workflow — for AVR64DD
+is extensive — for AVR64DD
 specifics, prefer the in-tree `AVR64DD_examples/` sources and `bloom.yaml`.

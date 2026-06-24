@@ -9,11 +9,7 @@
 ; Debugger : Bloom over UPDI  (avr_gdb_rsp @ 127.0.0.1:1442)
 ; ====================================================================
 ;
-;  Companion to the ATtiny13A 'sysclock' module. Differences worth noting
-;  for students moving from the tiny13 to the AVR64DD32:
-;
-;    * The tiny13 used Timer0 in CTC mode with the COMPA interrupt.
-;      Here we use TCA0 in NORMAL mode with the OVF (overflow) interrupt:
+;      We use TCA0 in NORMAL mode with the OVF (overflow) interrupt:
 ;      the timer counts 0 -> PER, and fires OVF when it rolls over.
 ;    * TCA0 registers are memory-mapped (use lds/sts), NOT low I/O.
 ;      Only a handful of CPU regs (SREG, SP) still use in/out.
