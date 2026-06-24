@@ -33,7 +33,7 @@
 
 ; ---------- PWM parameters ----------
 .equ    PER_TOP, 255                    ; TOP -> 256 steps, 15.625 kHz @ 4 MHz
-.equ    DC, 63                          ; duty cycle (%)
+.equ    DC, 127                         ; duty cycle (%)
 .equ    CMP_VAL, (DC * (PER_TOP + 1)) / 100   ; compare value for the duty cycle
 
 ; -------------------- Interrupt vector table --------------------

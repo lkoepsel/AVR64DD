@@ -1,2 +1,0 @@
-DEPTH = ../../
-include $(DEPTH)Makefile

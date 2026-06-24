@@ -1,22 +1,14 @@
 ; =============================================================
 ; main  –  Change the system clock freq on the AVR64DD32
 ; Target : AVR64DD32 @ 4 MHz
+; Frequency is dynamic, so this needs to  be called for 24MHz
 ; =============================================================
 
 #include <avr/io.h>
 #include "registers.S"
 
-; -------------------- Interrupt vector table --------------------
-; No interrupts are enabled, only vector 0/RESET can be taken
-.section .vectors, "ax", @progbits
-.global __vectors
-__vectors:
-    jmp     reset_handler           ; vector 0  RESET
-
-.section .text
-
-.type   reset_handler, @function
-reset_handler:                      ; serves as main_setup
+.global  set_24M
+set_24M:                      ; set clock to 24Mhz
 
 ; --- Set OSCHF to 24 MHz ---
 ; CCP_IOREG_gc (CCP_IOREG_gv << CPU_CCP_gp) = (0xD8 << 0) signature for protected I/O
@@ -31,6 +23,7 @@ reset_handler:                      ; serves as main_setup
     ldi   temp_17, 0x00                  ; PEN = 0
     out   CCP, temp_16
     sts   CLKCTRL_MCLKCTRLB, temp_17
+    ret
 
 .section .data
 .section .bss

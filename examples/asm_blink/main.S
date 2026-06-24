@@ -6,6 +6,7 @@
 
 #include <avr/io.h>
 #include "registers.S"
+#include "clocks.S"
 
 ; -------------------- Interrupt vector table --------------------
 ; No interrupts are enabled, only vector 0/RESET can be taken
@@ -19,6 +20,7 @@ __vectors:
 .type   reset_handler, @function
 reset_handler:                      ; serves as main_setup
     sbi     VPF_DIR, LED            ; PF5 as output
+    ; rcall   set_24M               ; call to set clock to 24Mhz
 
 main_loop:
     sbi     VPF_IN, LED             ; toggle PF5
