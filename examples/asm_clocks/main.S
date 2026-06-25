@@ -1,5 +1,6 @@
 ; =============================================================
 ; main  –  Blink LED to demonstrate clock freq change
+;          Best measured with a scope
 ; Target : AVR64DD32 @ 4 MHz (default)
 ; Board  : AVR64DD32 Curiosity Nano
 ; =============================================================
@@ -23,21 +24,21 @@ reset_handler:                      ; serves as main_setup
 
 main_loop:
     sbi     VPF_IN, LED             ; toggle LED
-    rcall   delay_250ms
+    rcall   d_100cycles
     rjmp    main_loop
 .size   reset_handler, .-reset_handler
 
 ; ---- busy-wait delay, ~25 us at 4 MHz (≈100 cycles) ----
-; Simple dec/brne. Inner iteration is 3 cycles; the constants
-; below give 31 × 3 ≈ 93 cycles ≈ 25.5us 
-.type   delay_250ms, @function
-delay_250ms:
-    ldi     temp_20, 31
+; Simple dec/brne loop, inner iteration is 93 cycles
+; Call overhead is 10 cycles
+;Per toggle: 1 + 3 + 93 + 4 + 2 = 103 cycles → 103 × 0.25 µs = 25.75 µs.
+.type   d_100cycles, @function
+d_100cycles:
+    ldi  temp_20, 31     ; 1 cycle, runs once
 d_outer:
-    dec     temp_20
-    brne    d_outer
-    ret
-.size   delay_250ms, .-delay_250ms
+    dec  temp_20         ; 1 cycle
+    brne d_outer         ; 2 cycles when it branches, 1 when it falls through
+    ret                  ; 4 cycles (AVR-Dx, see note).size   delay_250ms, .-delay_250ms
 
 .section .data
 .section .bss
