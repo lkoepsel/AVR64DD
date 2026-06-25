@@ -40,4 +40,4 @@
     brne    9b
 .endm
 
-#endif  /* REGISTERS_S */
+#endif  // REGISTERS_S 
