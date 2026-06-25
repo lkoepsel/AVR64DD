@@ -56,5 +56,20 @@ set_clock:
     sts   CLKCTRL_MCLKCTRLB, temp_17
     ret
 
+.type   d_100cycles, @function
+d_100cycles:                      ; serves as main_setup
+    sbi     VPF_DIR, LED            ; LED as output
+
+main_loop:
+    sbi     VPF_IN, LED  ; toggle LED
+
+; ---- busy-wait delay, ~25us at 4 MHz (≈100 cycles) ----
+    nop
+    ldi  temp_20, 32     ; 1 cycle, runs once
+delay_100:
+    dec  temp_20         ; 1 cycle
+    brne delay_100       ; 2 cycles when it branches, 1 when it falls through
+    rjmp    main_loop
+
 .section .data
 .section .bss
