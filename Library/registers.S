@@ -5,6 +5,7 @@
 
 ; ---------- Pin / register aliases ----------
 #define LED         5                          // PF5 == LED0 on the Nano
+#define PA2         2                          // PA2 == pin on Nano
 #define VPA_DIR     _SFR_IO_ADDR(VPORTA_DIR)   // PORTA dir  (VPORT, I/O 0x00)
 #define VPA_IN      _SFR_IO_ADDR(VPORTA_IN)    // write 1 -> toggle OUT (0x02)
 #define VPA_OUT    _SFR_IO_ADDR(VPORTA_OUT)  // PORTA PORT  (VPORT, I/O 0x00)
