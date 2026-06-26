@@ -15,17 +15,23 @@
 #define STACK_HIGH  _SFR_IO_ADDR(SPH)
 #define STATUS      _SFR_IO_ADDR(SREG)
 
+; register r0       r0      // typically used as scratch register, LPM/SPM, MUL
+; register r1       r1      // always 0
 #define ISR_temp    r2      // used in sys_clock ISR for temp register
+#define  saved_index r4
 #define ticks_lo    r8      // used in sys_clock ISR for ticks
 #define ticks_hi    r9      // used in sys_clock ISR for ticks
 #define char_reg    r24     // serial: byte to send / received
 #define temp_16    r16
 #define temp_17    r17
+#define  task_running r17    // used to save the current task running
 #define delay_18   r18
 #define delay_19   r19
 #define temp_20    r20
 #define temp_21    r21
 #define temp_22    r22
+#define tasks_26    r26
+#define tasks_27    r27
 
 .macro  delay_8  ticks
     ldi     delay_18, \ticks

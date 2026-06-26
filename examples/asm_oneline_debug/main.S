@@ -3,13 +3,27 @@
 
 #include <avr/io.h>
 #include "registers.S"
+#include "sysclock_b.S"
 
 ; -------------------- Interrupt vector table --------------------
-; No interrupts are enabled, only vector 0/RESET can be taken
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
-    jmp     reset_handler           ; vector 0  RESET
+    jmp     reset_handler       ; 0x000  vector 0  RESET
+    jmp     0                   ; 0x004  vector 1  NMI
+    jmp     0                   ; 0x008  vector 2  BOD_VLM
+    jmp     0                   ; 0x00C  vector 3  CLKCTRL
+    jmp     0                   ; 0x010  vector 4  MVIO_MVIO
+    jmp     0                   ; 0x014  vector 5  RTC_CNT
+    jmp     0                   ; 0x018  vector 6  RTC_PIT
+    jmp     0                   ; 0x01C  vector 7  CCL_CCL
+    jmp     0                   ; 0x020  vector 8  PORTA_PORT
+    jmp     0                   ; 0x024  vector 9  TCA0_OVF
+    jmp     0                   ; 0x024  vector 10  TCA0_HUNF
+    jmp     0                   ; 0x024  vector 11  TCA0_CMP0
+    jmp     0                   ; 0x024  vector 12  TCA0_CMP1
+    jmp     0                   ; 0x024  vector 13  TCA0_CMP2
+    jmp     TCB0_INT_handler    ; 0x024  vector 14  TCB0_INT 
 
 .section .text
 
@@ -22,6 +36,7 @@ __vectors:
 ; r2        ISR_temp - ISR scratch (STATUS save) — do NOT use elsewhere
 ; r9:r8     ticks_hi/lo - global 16-bit ISR ticks counter — do NOT use elsewhere
 
+#define  saved_index    r4
 .equ    time_0, 0x0200
 
         .section .text
@@ -35,6 +50,7 @@ reset_handler:
         ldi     temp_16, 0x1c
         out     VPA_DIR, temp_16   ; PA2-4 outputs
 
+        rcall   init_sysclock_100u ; setup ISR to track tasks running
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
         ldi     temp_16, NUM_TASKS - 1          ; index of last entry (count auto-computed)
@@ -63,50 +79,64 @@ dispatch:
 
 ; ---- Tasks ----
 task0:
-        ldi     temp_16, 0x00
-        out     VPA_OUT, temp_16
+        ldi     task_running, 0x00
+        out     VPA_OUT, task_running
         delay_16 time_0
         ret
 
 task1:
-        ldi     temp_16, 0x04
-        out     VPA_OUT, temp_16
+        ldi     task_running, 0x01
+        lsl     task_running
+        lsl     task_running
+        out     VPA_OUT, task_running
         delay_16 time_0
         ret
 
 task2:
-        ldi     temp_16, 0x08
-        out     VPA_OUT, temp_16
+        ldi     task_running, 0x02
+        lsl     task_running
+        lsl     task_running
+        out     VPA_OUT, task_running
         delay_16 time_0
         ret
 
 task3:
-        ldi     temp_16, 0x0c
-        out     VPA_OUT, temp_16
+        ldi     task_running, 0x03
+        lsl     task_running
+        lsl     task_running
+        out     VPA_OUT, task_running
         delay_16 time_0
         ret
 
 task4:
-        ldi     temp_16, 0x10
-        out     VPA_OUT, temp_16
+        ldi     task_running, 0x4
+        lsl     task_running
+        lsl     task_running
+        out     VPA_OUT, task_running
         delay_16 time_0
         ret
 
 task5:
-        ldi     temp_16, 0x14
-        out     VPA_OUT, temp_16
+        ldi     task_running, 0x5
+        lsl     task_running
+        lsl     task_running
+        out     VPA_OUT, task_running
         delay_16 time_0
         ret
 
 task6:
-        ldi     temp_16, 0x18
-        out     VPA_OUT, temp_16
+        ldi     task_running, 0x6
+        lsl     task_running
+        lsl     task_running
+        out     VPA_OUT, task_running
         delay_16 time_0
         ret
 
 task7:
-        ldi     temp_16, 0x1c
-        out     VPA_OUT, temp_16
+        ldi     task_running, 0x7
+        lsl     task_running
+        lsl     task_running
+        out     VPA_OUT, task_running
         delay_16 time_0
         ret
 
