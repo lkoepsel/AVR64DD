@@ -39,6 +39,12 @@ PC   = 0x0014
   (`AVR_PERIPHERALS`); the pane is added to the layout **only** when an example
   defines them (e.g. `asm_blink_pwm` shows TCA0's CTRLA/CTRLB/CNT/PER/CMP2). One
   byte registers can be bit-decoded via `AVR_BITFIELDS`.
+- **SRAM pane (per example).** A third module (`AvrSram`) hexdumps one or more
+  regions of SRAM — address, 16 hex bytes, and printable ASCII per row — the
+  headless equivalent of Insight's memory view. An example lists the regions in
+  its `avr_dashboard.py` (`AVR_SRAM`); the pane is added to the layout **only**
+  when an example defines them. Use it to watch `.data`/`.bss` variables or the
+  stack. On the AVR64DD32, SRAM is **0x6000–0x7FFF** (`RAMEND` 0x7FFF).
 - **SREG name gotcha.** gdb's register is `SREG` (uppercase, case-sensitive);
   `sreg`/`$sreg` silently fail. The module reads `SREG`.
 - **Assembly centering needs function symbols.** gdb-dashboard centers the
@@ -56,8 +62,8 @@ PC   = 0x0014
 
 | File | Install to | Purpose |
 |---|---|---|
-| `avr_modules.py`   | `~/.gdbinit.d/` | the `AvrRegs` module (curated regs + SREG + PC) |
-| `avr_layout.gdb`   | `~/.gdbinit.d/` | layout `source assembly avrregs`; shorter source; hide the `?` column |
+| `avr_modules.py`   | `~/.gdbinit.d/` | the `AvrRegs` (curated regs + SREG + PC), `AvrPeripheral`, and `AvrSram` modules |
+| `avr_layout.gdb`   | `~/.gdbinit.d/` | layout `source assembly avrregs` (+ `avrperipheral`/`avrsram` when defined); shorter source; hide the `?` column |
 | `avr_connect.gdb`  | `~/.gdbinit.d/` | the `connect` command (attach + `break *0` + `load`, then a clean redisplay) |
 | `avr_commands.gdb` | `~/.gdbinit.d/` | convenience commands: `cll` (rebuild + reload + list), `mrc` (reset + run) |
 | `avr_autostart.py` | `~/.gdbinit.d/` | auto-runs `connect` on startup **if** the cwd has a `main.elf` |
@@ -146,6 +152,21 @@ cd AVR64DD_examples/asm_blink && avr-gdb
    ```
    Addresses come from `/usr/avr/include/avr/ioavr64dd32.h` (the `_SFR_MEM*`
    macros) or the datasheet register map — verify them per peripheral.
+
+   To also show **SRAM**, add `AVR_SRAM` — a list of `(start_addr, length [,
+   "label"])` regions, in datasheet data-space addresses (AVR64DD32 SRAM is
+   `0x6000`–`0x7FFF`). The SRAM hexdump pane then appears automatically:
+   ```python
+   #            start    length  label
+   AVR_SRAM = [
+       (0x6000, 32, "vars"),     # .data/.bss live at the start of SRAM
+       (0x7FE0, 32, "stack"),    # top of SRAM, near RAMEND (0x7FFF)
+   ]
+   ```
+   To find a variable's address, build then
+   `avr-objdump -t main.elf | grep <label>`. SRAM symbols show with the linker's
+   data-space VMA (e.g. `00806000`); subtract `0x800000` to get the datasheet
+   address used here (`0x6000`). The module re-adds that offset when reading.
 2. In the program's `main.S`, give each routine `.type ...,@function` and
    `.size ...` so the Assembly pane centers and shows names.
 

@@ -1,5 +1,7 @@
-; asm_oneline.S - ICALL jump table demo for AVR64DD32
+; asm_oneline_debug.S - ICALL jump table demo for AVR64DD32
 ; uses lpm command to load jump table addr from FLASH
+; uses an 100us ISR to write task number to SRAM
+; Use to watch which tasks are executed and for how long
 
 #include <avr/io.h>
 #include "registers.S"
@@ -27,17 +29,20 @@ __vectors:
 
 .section .text
 
-; ---------- Registers and Values ----------------
+; ---------- Registers and Values (includes ISR) --------------
 ; r4                            ; saved index for jump table
 ; r7:r6                         ; temp registers for lpm command
 ; r16                           ; temp register
+; r17                           ; temp register
 ; r19:r18                       ; delay register
+; r20                           ; temp register in task
+; r21                           ; tracks executing task
+; r27:r26 (X)                   ; pointer to SRAM tasks buffer
 ; ---------- Reserved registers ----------
 ; r2        ISR_temp - ISR scratch (STATUS save) — do NOT use elsewhere
-; r9:r8     ticks_hi/lo - global 16-bit ISR ticks counter — do NOT use elsewhere
 
 #define  saved_index    r4
-.equ    time_0, 0x0200
+.equ    time_0, 0x0050
 
         .section .text
         .global  main
@@ -79,65 +84,66 @@ dispatch:
 
 ; ---- Tasks ----
 task0:
-        ldi     task_running, 0x00
-        out     VPA_OUT, task_running
-        delay_16 time_0
+        ldi     task_21, 0x00
+        out     VPA_OUT, temp_20
+        delay_16 time_0 * 4
         ret
 
 task1:
-        ldi     task_running, 0x01
-        lsl     task_running
-        lsl     task_running
-        out     VPA_OUT, task_running
+        ldi     task_21, 0x01
+        mov     temp_20, task_21
+        lsl     temp_20
+        lsl     temp_20
+        out     VPA_OUT, temp_20
         delay_16 time_0
         ret
 
 task2:
-        ldi     task_running, 0x02
-        lsl     task_running
-        lsl     task_running
-        out     VPA_OUT, task_running
+        ldi     task_21, 0x02
+        lsl     temp_20
+        lsl     temp_20
+        out     VPA_OUT, temp_20
         delay_16 time_0
         ret
 
 task3:
-        ldi     task_running, 0x03
-        lsl     task_running
-        lsl     task_running
-        out     VPA_OUT, task_running
+        ldi     task_21, 0x03
+        lsl     temp_20
+        lsl     temp_20
+        out     VPA_OUT, temp_20
         delay_16 time_0
         ret
 
 task4:
-        ldi     task_running, 0x4
-        lsl     task_running
-        lsl     task_running
-        out     VPA_OUT, task_running
-        delay_16 time_0
+        ldi     task_21, 0x4
+        lsl     temp_20
+        lsl     temp_20
+        out     VPA_OUT, temp_20
+        delay_16 time_0 * 8
         ret
 
 task5:
-        ldi     task_running, 0x5
-        lsl     task_running
-        lsl     task_running
-        out     VPA_OUT, task_running
+        ldi     task_21, 0x5
+        lsl     temp_20
+        lsl     temp_20
+        out     VPA_OUT, temp_20
         delay_16 time_0
         ret
 
 task6:
-        ldi     task_running, 0x6
-        lsl     task_running
-        lsl     task_running
-        out     VPA_OUT, task_running
+        ldi     task_21, 0x6
+        lsl     temp_20
+        lsl     temp_20
+        out     VPA_OUT, temp_20
         delay_16 time_0
         ret
 
 task7:
-        ldi     task_running, 0x7
-        lsl     task_running
-        lsl     task_running
-        out     VPA_OUT, task_running
-        delay_16 time_0
+        ldi     task_21, 0x7
+        lsl     temp_20
+        lsl     temp_20
+        out     VPA_OUT, temp_20
+        delay_16 time_0 *16
         ret
 
 ; ---- The table: each entry is the WORD address of a task ----

@@ -90,15 +90,15 @@ init_sysclock_100u:
 .global __vector_14                
 __vector_14:
 TCB0_INT_handler:
-    in    r2, SREG                 ; save flags in dedicated low reg
+    in    r2, SREG                   ; save flags in dedicated low reg
 
-    ldi   temp_17, TCB_CAPT_bm         ; clear CAPT by writing 1
+    ldi   temp_17, TCB_CAPT_bm       ; clear CAPT by writing 1
     sts   TCB0_INTFLAGS, temp_17
 
-    st    X+, task_running         ; on interrupt, save current task
-    cpi   r26, lo8(tasks + 100)
+    st    X+, task_21                ; on interrupt, save current task
+    cpi   tasks_26, lo8(tasks + tasks_size) ; ring buffer, if at end, reload
     brne  lt_100
-    ldi   r26, lo8(tasks)
+    ldi   tasks_26, lo8(tasks)
 
  lt_100:   
     out   SREG, r2                 ; restore flags
@@ -113,5 +113,6 @@ TCB0_INT_handler:
 ;  BSS SECTION  (zero-initialized / uninitialized variables in SRAM)
 ; ====================================================================
 .section .bss
+    .equ    tasks_size, 0x80
 tasks:
-    .space 100                    ; reserve 100 bytes for task storage
+    .space tasks_size                    ; reserve 100 bytes for task storage

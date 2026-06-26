@@ -13,16 +13,20 @@
 #    avrregs        -- curated working regs + decoded SREG + PC (avr_modules.py)
 #    avrperipheral  -- added only when the example's avr_dashboard.py defines
 #                      AVR_PERIPHERALS (e.g. TCA0 for asm_blink_pwm)
+#    avrsram        -- added only when the example's avr_dashboard.py defines
+#                      AVR_SRAM (hexdump of one or more SRAM regions)
 # ============================================================================
 python
 _layout = ['source', 'assembly', 'avrregs']
 if AVR_PERIPHERALS:
     _layout.append('avrperipheral')
+if AVR_SRAM:
+    _layout.append('avrsram')
 gdb.execute('dashboard -layout ' + ' '.join(_layout))
 end
 
 # Shorter source panel (default is 10 lines). Tweak to taste.
-dashboard source -style height 12
+dashboard source -style height 24
 
 # Hide the Assembly "function+offset" column (the '?' you saw when labels had
 # no function symbol). Centering still works -- it uses the function boundaries

@@ -24,10 +24,10 @@
 #define char_reg    r24     // serial: byte to send / received
 #define temp_16    r16
 #define temp_17    r17
-#define  task_running r17    // used to save the current task running
-#define delay_18   r18
-#define delay_19   r19
-#define temp_20    r20
+#define delay_18    r18
+#define delay_19    r19
+#define temp_20     r20
+#define task_21     r21    // used to save the current task running
 #define temp_21    r21
 #define temp_22    r22
 #define tasks_26    r26

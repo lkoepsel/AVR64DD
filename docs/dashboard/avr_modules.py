@@ -45,11 +45,17 @@ AVR_PERIPHERALS = []
 # used in AVR_PERIPHERALS:  {name: [(bit_position, "FLAG"), ...]}.
 AVR_BITFIELDS = {}
 
+# SRAM regions to hexdump: (start_addr, length [, "label"]).  Addresses are
+# datasheet DATA-space (AVR64DD32 SRAM is 0x6000-0x7FFF, RAMEND 0x7FFF); the
+# _AVR_DATA_OFFSET is added automatically. Empty by default; an example's
+# avr_dashboard.py fills this in, e.g.  [(0x6000, 32, "vars")].
+AVR_SRAM = []
+
 
 # ----------------------------------------------------------------------------
 #  Per-example override: if the launch directory contains an `avr_dashboard.py`,
 #  run it and adopt any of AVR_REG_SET / AVR_REG_PAIRS / REGS_PER_ROW /
-#  AVR_PERIPHERALS / AVR_BITFIELDS it defines.
+#  AVR_PERIPHERALS / AVR_BITFIELDS / AVR_SRAM it defines.
 #  This keeps the register selection tracked next to each example's source.
 #  (The file is executed as Python, like a local ./.gdbinit -- only launch
 #  avr-gdb in directories you trust.)
@@ -69,12 +75,13 @@ def _load_example_overrides():
         gdb.write('[avr_dashboard.py] {}\n'.format(e))
         return
     global AVR_REG_SET, AVR_REG_PAIRS, REGS_PER_ROW
-    global AVR_PERIPHERALS, AVR_BITFIELDS
+    global AVR_PERIPHERALS, AVR_BITFIELDS, AVR_SRAM
     AVR_REG_SET = ns.get('AVR_REG_SET', AVR_REG_SET)
     AVR_REG_PAIRS = ns.get('AVR_REG_PAIRS', AVR_REG_PAIRS)
     REGS_PER_ROW = ns.get('REGS_PER_ROW', REGS_PER_ROW)
     AVR_PERIPHERALS = ns.get('AVR_PERIPHERALS', AVR_PERIPHERALS)
     AVR_BITFIELDS = ns.get('AVR_BITFIELDS', AVR_BITFIELDS)
+    AVR_SRAM = ns.get('AVR_SRAM', AVR_SRAM)
 
 
 _load_example_overrides()
@@ -224,4 +231,55 @@ class AvrPeripheral(Dashboard.Module):
                                    for bp, fn in bits)
                 line += '  [ {} ]'.format(decoded)
             out.append(line)
+        return out
+
+
+def _read_bytes(addr, length):
+    """Read `length` raw bytes from AVR DATA memory at datasheet address `addr`
+    (e.g. 0x6000). Returns a bytes object, or None on failure."""
+    try:
+        return bytes(gdb.selected_inferior().read_memory(_AVR_DATA_OFFSET + addr, length))
+    except Exception:
+        return None
+
+
+class AvrSram(Dashboard.Module):
+    """AVR SRAM regions shown as a classic hexdump (per example).
+
+    Dumps each region listed in AVR_SRAM (set by the example's avr_dashboard.py)
+    straight from target memory over Bloom: data-space address, 16 hex bytes,
+    and printable ASCII. AVR64DD32 SRAM is 0x6000-0x7FFF. Useful for watching
+    .data/.bss variables or the stack without an Insight memory pane."""
+
+    _PER_ROW = 16
+
+    def label(self):
+        return 'AVR SRAM'
+
+    def lines(self, term_width, term_height, style_changed):
+        if not AVR_SRAM:
+            return []
+        # No inferior (not connected) -> empty; divider greys out.
+        try:
+            gdb.selected_inferior()
+        except Exception:
+            return []
+
+        out = []
+        for entry in AVR_SRAM:
+            start, length = entry[0], entry[1]
+            lbl = entry[2] if len(entry) > 2 else ''
+            header = '0x{:04X}..0x{:04X}'.format(start, start + length - 1)
+            out.append('{}  {}'.format(lbl, header) if lbl else header)
+
+            data = _read_bytes(start, length)
+            if data is None:
+                out.append('  ?? (unreadable)')
+                continue
+            for off in range(0, length, self._PER_ROW):
+                chunk = data[off:off + self._PER_ROW]
+                hexs = ' '.join('{:02X}'.format(b) for b in chunk)
+                asci = ''.join(chr(b) if 32 <= b < 127 else '.' for b in chunk)
+                out.append('  0x{:04X}  {:<{w}}  {}'.format(
+                    start + off, hexs, asci, w=self._PER_ROW * 3 - 1))
         return out
