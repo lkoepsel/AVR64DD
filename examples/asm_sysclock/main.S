@@ -73,15 +73,10 @@ main_loop:
     ldi     char_24, HEX_BEG
     rcall   char_write
 
-    ldi     temp_23,hi8(COUNTER)
-    ldi     temp_22,lo8(COUNTER)
-
     ; get ticks start
     movw   start_10, ticks_8_lo
 
-delay_1ms:
-    sbiw    temp_22,1
-    brne    delay_1ms
+    delay_16 COUNTER
 
     ; get ticks end
     movw    delta_6, ticks_8_lo

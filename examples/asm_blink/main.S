@@ -22,29 +22,9 @@ reset_handler:                      ; serves as main_setup
 
 main_loop:
     sbi     VPF_IN, LED             ; toggle PF5
-    rcall   delay_250ms
+    delay_16   0xfffe
     rjmp    main_loop
 .size   reset_handler, .-reset_handler
-
-; ---- busy-wait delay, ~250 ms at 4 MHz (≈1,000,000 cycles) ----
-; Triple-nested dec/brne. Inner iteration is 3 cycles; the constants
-; below give 21 × 250 × 64 × 3 ≈ 1,008,000 cycles ≈ 252 ms. 
-.type   delay_250ms, @function
-delay_250ms:
-    ldi     temp_20, 21
-d_outer:
-    ldi     temp_21, 250
-d_mid:
-    ldi     temp_22, 64
-d_inner:
-    dec     temp_22
-    brne    d_inner
-    dec     temp_21
-    brne    d_mid
-    dec     temp_20
-    brne    d_outer
-    ret
-.size   delay_250ms, .-delay_250ms
 
 .section .data
 .section .bss

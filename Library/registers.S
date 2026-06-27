@@ -37,9 +37,8 @@
 #define delay_19    r19
 #define temp_20     r20
 #define task_21     r21    // used to save the current task running
-#define temp_21     r21
-#define temp_22     r22
-#define temp_23     r23
+;free               r22
+;free               r23
 #define char_24     r24     // serial: byte to send / received
 ; free              r25
 #define tasks_26    r26
