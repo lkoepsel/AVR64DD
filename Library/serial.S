@@ -53,23 +53,23 @@ init_serial:
     ;     The *_gc group codes live in a C enum in modern avr-libc, so the
     ;     assembler can't see them -- build the value from the *_gp #define
     ;     instead.  (ALT3 value = 3; ALT1 = PA4/PA5, the wrong pins.)
-    ldi     r16, (3 << PORTMUX_USART0_gp)    ; ALT3 -> PD4 TX / PD5 RX (Nano CDC)
-    sts     PORTMUX_USARTROUTEA, r16
+    ldi     temp_16, (3 << PORTMUX_USART0_gp)    ; ALT3 -> PD4 TX / PD5 RX (Nano CDC)
+    sts     PORTMUX_USARTROUTEA, temp_16
 
     ; --- 2. PD4 (TX) as output; PD5 (RX) stays input (default) ---
-    ldi     r16, (1 << 4)          ; PIN4 = PD4 = TX
-    sts     PORTD_DIRSET, r16
+    ldi     temp_16, (1 << 4)          ; PIN4 = PD4 = TX
+    sts     PORTD_DIRSET, temp_16
 
     ; --- 3. Baud rate: 16-bit write, low then high ---
-    ldi     r16, lo8(BAUD_VAL)
-    sts     USART0_BAUDL, r16
-    ldi     r16, hi8(BAUD_VAL)
-    sts     USART0_BAUDH, r16
+    ldi     temp_16, lo8(BAUD_VAL)
+    sts     USART0_BAUDL, temp_16
+    ldi     temp_16, hi8(BAUD_VAL)
+    sts     USART0_BAUDH, temp_16
 
     ; --- 4. Enable transmitter and receiver ---
     ;     USART0.CTRLB: TXEN and RXEN bits.
-    ldi     r16, USART_TXEN_bm | USART_RXEN_bm
-    sts     USART0_CTRLB, r16
+    ldi     temp_16, USART_TXEN_bm | USART_RXEN_bm
+    sts     USART0_CTRLB, temp_16
 
     ; CTRLC defaults to async 8N1 at reset, so no write needed for that here.
     ret
@@ -81,21 +81,21 @@ init_serial:
 char_write:
     ; --- wait for DREIF (data register empty) in USART0.STATUS ---
 1:
-    lds     r16, USART0_STATUS
-    sbrs    r16, USART_DREIF_bp     ; skip next when DRE flag set (ready)
+    lds     temp_16, USART0_STATUS
+    sbrs    temp_16, USART_DREIF_bp     ; skip next when DRE flag set (ready)
     rjmp    1b
     ; --- write the byte; this clears DREIF and starts transmission ---
-    sts     USART0_TXDATAL, r24
+    sts     USART0_TXDATAL, char_24
     ret
 ; --------------------------------------------------------------------
 
 ; write a word (passed in r25/r24, per AVR-GCC ABI) to the serial port
 .global word_write
 word_write:
-    push    r24
-    mov     r24, r25
+    push    char_24
+    mov     char_24, r25
     rcall   char_write
-    pop     r24
+    pop     char_24
     rcall   char_write
     ret
 
@@ -107,8 +107,8 @@ word_write:
 .global flash_write
 flash_write:
 1:
-    lpm     r24, Z+                 ; load next char from flash, advance Z
-    cpi     r24, 0                  ; null terminator?
+    lpm     char_24, Z+                 ; load next char from flash, advance Z
+    cpi     char_24, 0                  ; null terminator?
     breq    2f                      ; yes -> done
     rcall   char_write                 ; no  -> send it
     rjmp    1b
@@ -122,11 +122,11 @@ flash_write:
 char_read:
     ; --- wait for RXCIF (receive complete) in USART0.STATUS ---
 1:
-    lds     r16, USART0_STATUS
-    sbrs    r16, USART_RXCIF_bp     ; skip when receive-complete flag set
+    lds     temp_16, USART0_STATUS
+    sbrs    temp_16, USART_RXCIF_bp     ; skip when receive-complete flag set
     rjmp    1b
     ; --- read the received byte (clears RXCIF) ---
-    lds     r24, USART0_RXDATAL
+    lds     char_24, USART0_RXDATAL
     ret
 
 ; ====================================================================
