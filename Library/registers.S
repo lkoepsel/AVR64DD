@@ -25,8 +25,8 @@
 ; free              r7
 #define ticks_8_lo  r8      // used in sys_clock ISR for ticks
 #define ticks_9_hi  r9      // used in sys_clock ISR for ticks
-; free              r10
-; free              r11
+#define start_10    r10
+#define start_11    r11
 ; free              r12
 ; free              r13
 ; free              r14
