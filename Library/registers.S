@@ -21,8 +21,8 @@
 ; free              r3
 #define  index_4    r4
 ; free              r5
-; free              r6
-; free              r7
+#define delta_6     r6
+#define delta_7     r7
 #define ticks_8_lo  r8      // used in sys_clock ISR for ticks
 #define ticks_9_hi  r9      // used in sys_clock ISR for ticks
 #define start_10    r10
@@ -39,7 +39,7 @@
 #define task_21     r21    // used to save the current task running
 #define temp_21     r21
 #define temp_22     r22
-; free              r23
+#define temp_23     r23
 #define char_24     r24     // serial: byte to send / received
 ; free              r25
 #define tasks_26    r26
