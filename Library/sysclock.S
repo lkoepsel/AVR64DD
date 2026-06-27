@@ -44,8 +44,8 @@
 ; ---------- Registers and Values ----------------
 ; r16                           ; temp register (general scratch)
 ; ISR uses a dedicated save reg so it never clobbers main's scratch:
-; r2                            ; ISR_temp  - SREG save inside the ISR
-; r8 / r9                       ; ticks_lo / ticks_hi - 16-bit tick counter
+; r2                            ; ISR_2  - SREG save inside the ISR
+; r8 / r9                       ; ticks_8_lo / ticks_9_hi - 16-bit tick counter
 ;
 
 ; ====================================================================
@@ -64,17 +64,17 @@
 .global __vector_9
 __vector_9:
 TCA0_OVF_handler:
-    in      ISR_temp, CPU_SREG          ; save status flags
+    in      ISR_2, CPU_SREG          ; save status flags
     ; --- clear the OVF interrupt flag by writing 1 to it ---
     ;     TCA0.SINGLE.INTFLAGS, OVF bit (bit 0). Write-1-to-clear.
     ldi     temp_16, TCA_SINGLE_OVF_bm
     sts     TCA0_SINGLE_INTFLAGS, temp_16
     ; --- increment the 16-bit tick counter ---
-    inc     ticks_lo                    ; r8++
+    inc     ticks_8_lo                    ; r8++
     brne    1f                          ; no carry -> done
-    inc     ticks_hi                    ; carry -> bump high byte
+    inc     ticks_9_hi                    ; carry -> bump high byte
 1:
-    out     CPU_SREG, ISR_temp          ; restore status flags
+    out     CPU_SREG, ISR_2          ; restore status flags
     reti
 
 ; --------------------------------------------------------------------
@@ -89,8 +89,8 @@ TCA0_OVF_handler:
 .global init_sysclock_1k
 init_sysclock_1k:
     ; clear the tick counter
-    eor     ticks_lo, ticks_lo          ; ticks_lo = 0
-    eor     ticks_hi, ticks_hi          ; ticks_hi = 0
+    eor     ticks_8_lo, ticks_8_lo          ; ticks_8_lo = 0
+    eor     ticks_9_hi, ticks_9_hi          ; ticks_9_hi = 0
 
     ; --- set PER = 249 (16-bit write; low byte then high byte) ---
     ;     TCA in SINGLE mode: PER is 16-bit at TCA0.SINGLE.PER
@@ -127,10 +127,10 @@ init_sysclock_1k:
 ; --------------------------------------------------------------------
 .global ticks
 ticks:
-    in      ISR_temp, CPU_SREG      ; save I-flag state
+    in      ISR_2, CPU_SREG      ; save I-flag state
     cli                             ; atomic 16-bit read
-    movw    r24, ticks_lo           ; r25:r24 <- r9:r8
-    out     CPU_SREG, ISR_temp      ; restore (re-enables I if it was set)
+    movw    r24, ticks_8_lo           ; r25:r24 <- r9:r8
+    out     CPU_SREG, ISR_2      ; restore (re-enables I if it was set)
     ret
 
 ; ====================================================================

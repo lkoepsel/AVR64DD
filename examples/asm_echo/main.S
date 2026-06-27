@@ -39,7 +39,7 @@ prompt: .asciz  "DD:"
 ; ---------- Registers and Values ----------------
 ; r16           ; temp register
 ; r24           ; char register
-; r31/r30       ; address of program text to print
+; Z_31_hi/Z_30_lo       ; address of program text to print
 
 ; --------------------------------------------------------------------
 ; reset_handler – entry point after RESET
@@ -60,8 +60,8 @@ main_setup:
     rcall   init_serial
 
     ; prompt to show terminal is live
-    ldi     r30, lo8(prompt)
-    ldi     r31, hi8(prompt)
+    ldi     Z_30_lo, lo8(prompt)
+    ldi     Z_31_hi, hi8(prompt)
     rcall   flash_write
 
 ; simple echo loop to test read/write char

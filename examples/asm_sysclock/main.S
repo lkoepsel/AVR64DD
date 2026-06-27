@@ -40,11 +40,11 @@
 ; r7:r6                         ; final ticks count and delta
 ; r15                           ; temp register, saved in ISR
 ; r16                           ; temp register
-; char_reg                      ; char register (serial)
+; char_24                      ; char register (serial)
 ; delay_hi/lo                   ; delay word
 ; ---------- Reserved registers ----------
-; r2        ISR_temp - ISR scratch (STATUS save) — do NOT use elsewhere
-; r9:r8     ticks_hi/lo - global 16-bit ISR ticks counter — do NOT use elsewhere
+; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
+; r9:r8     ticks_9_hi/lo - global 16-bit ISR ticks counter — do NOT use elsewhere
 
 .equ    COUNTER, 30000          ; 30,000 @ 4 MHz => ~30 ms delay (~30 ticks)
                                 ; window must span many 1 ms ticks or the
@@ -70,33 +70,33 @@ main_setup:
     rcall   init_serial
 
 main_loop:
-    ldi     char_reg, HEX_BEG
+    ldi     char_24, HEX_BEG
     rcall   char_write
 
     ldi     r27,hi8(COUNTER)
     ldi     r26,lo8(COUNTER)
 
     ; get ticks start
-    movw    r4, ticks_lo
+    movw    r4, ticks_8_lo
 
 delay_1ms:
     sbiw    r26,1
     brne    delay_1ms
 
     ; get ticks end
-    movw    r6, ticks_lo
+    movw    r6, ticks_8_lo
 
     ; delta ticks = end - start
     sub     r6, r4
     sbc     r7, r5
 
     ; print delta ticks in hex
-    mov     char_reg, r7
+    mov     char_24, r7
     rcall   char_write
-    mov     char_reg, r6
+    mov     char_24, r6
     rcall   char_write
 
-    ldi     char_reg,  HEX_END
+    ldi     char_24,  HEX_END
     rcall   char_write
 
     rjmp    main_loop

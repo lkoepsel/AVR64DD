@@ -41,7 +41,7 @@
 ; ---------- Registers and Values ----------------
 ; r24                           ; char register - byte to send / received byte
 ; r16                           ; temp register - scratch
-; Z (r31:r30)                   ; flash pointer for flash_write
+; Z (Z_31_hi:Z_30_lo)                   ; flash pointer for flash_write
 
 ; --------------------------------------------------------------------
 ;  init_serial - set up USART0 on PD4/PD5 via PORTMUX, 8N1, TX+RX enabled

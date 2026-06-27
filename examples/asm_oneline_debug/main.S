@@ -39,9 +39,9 @@ __vectors:
 ; r21                           ; tracks executing task
 ; r27:r26 (X)                   ; pointer to SRAM tasks buffer
 ; ---------- Reserved registers ----------
-; r2        ISR_temp - ISR scratch (STATUS save) — do NOT use elsewhere
+; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
 
-#define  saved_index    r4
+#define  index_4    r4
 .equ    time_0, 0x0050
 
         .section .text
@@ -59,10 +59,10 @@ reset_handler:
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
         ldi     temp_16, NUM_TASKS - 1          ; index of last entry (count auto-computed)
-        mov     saved_index, temp_16            ; r4 = saved index, survives icall
+        mov     index_4, temp_16            ; r4 = saved index, survives icall
 dispatch:
         ; Z = jump_table + (index * 1 word)
-        mov     temp_16, saved_index            ; working copy of the index
+        mov     temp_16, index_4            ; working copy of the index
         lsl     temp_16                         ; index * 2 (each entry is 1 word = 2 bytes)
         ldi     ZL, lo8(jump_table)
         ldi     ZH, hi8(jump_table)
@@ -70,14 +70,14 @@ dispatch:
         adc     ZH, r1                          ; r1 assumed 0
 
         ; Load the task's WORD address stored in the table. LPM cannot target
-        ; r30/r31 (Z) directly, so read into r7:r6 then movw into Z in one op.
+        ; Z_30_lo/Z_31_hi (Z) directly, so read into r7:r6 then movw into Z in one op.
         lpm     r6, Z+
         lpm     r7, Z
         movw    ZL, r6                   ; ZL<-r6 (low), ZH<-r7 (high)
         ; Z holds the word-address of the target task
         icall                             ; push PC, jump to (Z)
 
-        dec     saved_index
+        dec     index_4
         brmi    reload
         rjmp    dispatch
 
