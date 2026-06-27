@@ -18,9 +18,9 @@
 ; register r0       r0      // Claimed, used as scratch register, LPM/SPM, MUL
 ; register r1       r1      // Claimed, always 0
 #define ISR_2       r2      // used in sys_clock ISR for temp register
-; free              r3
-#define  index_4    r4
-; free              r5
+; free              r3      
+#define index_4     r4
+#define out_5       r5
 #define delta_6     r6
 #define delta_7     r7
 #define ticks_8_lo  r8      // used in sys_clock ISR for ticks

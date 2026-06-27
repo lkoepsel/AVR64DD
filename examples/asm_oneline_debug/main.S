@@ -42,7 +42,7 @@ __vectors:
 ; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
 
 #define  index_4    r4
-.equ    time_0, 0x0050
+.equ    time_0, 0x00A0
 
         .section .text
         .global  main
@@ -85,64 +85,70 @@ dispatch:
 ; ---- Tasks ----
 task0:
         ldi     task_21, 0x00
-        out     VPA_OUT, temp_20
+        out     VPA_OUT, out_5
         delay_16 time_0 * 4
         ret
 
 task1:
         ldi     task_21, 0x01
-        mov     temp_20, task_21
-        lsl     temp_20
-        lsl     temp_20
-        out     VPA_OUT, temp_20
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
         delay_16 time_0
         ret
 
 task2:
         ldi     task_21, 0x02
-        lsl     temp_20
-        lsl     temp_20
-        out     VPA_OUT, temp_20
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
         delay_16 time_0
         ret
 
 task3:
         ldi     task_21, 0x03
-        lsl     temp_20
-        lsl     temp_20
-        out     VPA_OUT, temp_20
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
         delay_16 time_0
         ret
 
 task4:
         ldi     task_21, 0x4
-        lsl     temp_20
-        lsl     temp_20
-        out     VPA_OUT, temp_20
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
         delay_16 time_0 * 8
         ret
 
 task5:
         ldi     task_21, 0x5
-        lsl     temp_20
-        lsl     temp_20
-        out     VPA_OUT, temp_20
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
         delay_16 time_0
         ret
 
 task6:
         ldi     task_21, 0x6
-        lsl     temp_20
-        lsl     temp_20
-        out     VPA_OUT, temp_20
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
         delay_16 time_0
         ret
 
 task7:
         ldi     task_21, 0x7
-        lsl     temp_20
-        lsl     temp_20
-        out     VPA_OUT, temp_20
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
         delay_16 time_0 *16
         ret
 
