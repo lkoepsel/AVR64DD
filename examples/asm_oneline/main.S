@@ -37,22 +37,22 @@ reset_handler:
 
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
-        ldi     temp_16, NUM_TASKS - 1          ; index of last entry (count auto-computed)
-        mov     index_4, temp_16            ; r4 = saved index, survives icall
+        ldi     temp_16, NUM_TASKS - 1  ; index of last entry (count auto-computed)
+        mov     index_4, temp_16        ; r4 = saved index, survives icall
 dispatch:
         ; Z = jump_table + (index * 1 word)
-        mov     temp_16, index_4            ; working copy of the index
-        lsl     temp_16                         ; index * 2 (each entry is 1 word = 2 bytes)
+        mov     temp_16, index_4        ; working copy of the index
+        lsl     temp_16                 ; index * 2 (each entry is 1 word = 2 bytes)
         ldi     ZL, lo8(jump_table)
         ldi     ZH, hi8(jump_table)
         add     ZL, temp_16
-        adc     ZH, r1                          ; r1 assumed 0
+        adc     ZH, r1                  ; r1 assumed 0
 
         ; Load the task's WORD address stored in the table. LPM cannot target
         ; Z_30_lo/Z_31_hi (Z) directly, so read into r7:r6 then movw into Z in one op.
-        lpm     r6, Z+
-        lpm     r7, Z
-        movw    ZL, r6                   ; ZL<-r6 (low), ZH<-r7 (high)
+        lpm     temp_6, Z+
+        lpm     temp_7, Z
+        movw    ZL, temp_6                   ; ZL<-r6 (low), ZH<-r7 (high)
         ; Z holds the word-address of the target task
         icall                             ; push PC, jump to (Z)
 

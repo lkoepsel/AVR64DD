@@ -15,14 +15,14 @@
 #define STACK_HIGH  _SFR_IO_ADDR(SPH)
 #define STATUS      _SFR_IO_ADDR(SREG)
 
-; register r0       r0      // Claimed, used as scratch register, LPM/SPM, MUL
-; register r1       r1      // Claimed, always 0
+; register r0       r0      // Reserved, used as scratch register, LPM/SPM, MUL
+; register r1       r1      // Reserved, always 0
 #define ISR_2       r2      // used in sys_clock ISR for temp register
 ; free              r3      
-#define index_4     r4
-#define out_5       r5
-#define delta_6     r6
-#define delta_7     r7
+#define index_4     r4      // tracks index of task executing
+#define out_5       r5      // identifies task on output pins
+#define temp_6      r6      // temp register (lo) for r0-r15
+#define temp_7      r7      // temp register (hi) for r0-r15
 #define ticks_8_lo  r8      // used in sys_clock ISR for ticks
 #define ticks_9_hi  r9      // used in sys_clock ISR for ticks
 #define start_10    r10
@@ -33,20 +33,20 @@
 ; free              r15
 #define temp_16     r16
 #define temp_17     r17
-#define delay_18    r18
-#define delay_19    r19
-#define temp_20     r20
-#define task_21     r21    // used to save the current task running
+#define delay_18    r18     // used for macros delay_8, delay_16
+#define delay_19    r19     // used for macro delay_16
+#define temp_20     r20     // used for ldi commands
+#define task_21     r21     // used to save the current task running
 ;free               r22
 ;free               r23
-#define char_24     r24     // serial: byte to send / received
+#define char_24     r24     // serial: byte to send/receive
 ; free              r25
-#define tasks_26    r26
-#define tasks_27    r27
+#define tasks_26    r26     // X lo, buffer address pointer
+#define tasks_27    r27     // X hi, buffer address pointer
 ; free              r28
 ; free              r29
-#define Z_30_lo     r30             
-#define Z_31_hi     r31
+#define Z_30_lo     r30     // Z register for program memory lo
+#define Z_31_hi     r31     // Z register for program memory hi
 
 
 .macro  delay_8  ticks

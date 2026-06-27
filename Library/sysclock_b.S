@@ -84,24 +84,25 @@ init_sysclock_100u:
     ret
 
 ; --------------------------------------------------------------------
-;  TCB0_INT_handler : increment 16-bit ticks, clear CAPT flag, return.
-;  CONFIRM vector number:  grep TCB0_INT_vect ioavr64dd32.h
+;  TCB0_INT_handler : save task running to buffer
 ; --------------------------------------------------------------------
 .global __vector_14                
 __vector_14:
 TCB0_INT_handler:
-    in    r2, SREG                   ; save flags in dedicated low reg
+    in    ISR_2, SREG               ; save flags in dedicated low reg
 
-    ldi   temp_17, TCB_CAPT_bm       ; clear CAPT by writing 1
+    ldi   temp_17, TCB_CAPT_bm      ; clear CAPT by writing 1
     sts   TCB0_INTFLAGS, temp_17
 
-    st    X+, task_21                ; on interrupt, save current task
-    cpi   tasks_26, lo8(tasks + tasks_size) ; ring buffer, if at end, reload
-    brne  lt_100
-    ldi   tasks_26, lo8(tasks)
+    st    X+, task_21               ; on interrupt, save task to buffer
+    
+    ; ring buffer, if at end, reload
+    cpi   tasks_26, lo8(tasks + tasks_size)
+    brne  lt_buf                    ; less than buffer size
+    ldi   tasks_26, lo8(tasks)      ; end of buffer, reload
 
- lt_100:   
-    out   SREG, r2                 ; restore flags
+ lt_buf:   
+    out   SREG, ISR_2               ; restore flags
     reti
 
 ; ====================================================================
