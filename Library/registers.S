@@ -49,12 +49,16 @@
 #define Z_31_hi     r31     // Z register for program memory hi
 
 
+; delay clock_cycles = 3 * ticks, range 1-256
+; 0 for maximum delay (256 ticks)
 .macro  delay_8  ticks
     ldi     delay_18, \ticks
 9:  dec     delay_18
     brne    9b
 .endm
 
+; delay clock_cycles = 4 * ticks + 1, range 1-65536 
+; 0 for maximum delay (65536 ticks)
 .macro  delay_16  ticks
     ldi     delay_18, lo8(\ticks)
     ldi     delay_19, hi8(\ticks)

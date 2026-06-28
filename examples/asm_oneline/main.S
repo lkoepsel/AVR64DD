@@ -3,6 +3,7 @@
 
 #include <avr/io.h>
 #include "registers.S"
+#include "clocks.S"
 
 ; -------------------- Interrupt vector table --------------------
 ; No interrupts are enabled, only vector 0/RESET can be taken
@@ -14,15 +15,12 @@ __vectors:
 .section .text
 
 ; ---------- Registers and Values ----------------
-; r4                            ; saved index for jump table
-; r7:r6                         ; temp registers for lpm command
-; r16                           ; temp register
-; r19:r18                       ; delay register
-; ---------- Reserved registers ----------
-; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
-; r9:r8     ticks_9_hi/lo - global 16-bit ISR ticks counter — do NOT use elsewhere
+; r4            index_4         ; saved index for jump table
+; r7:r6         temp_6/7        ; temp registers for lpm command
+; r16           temp_16         ; temp register
+; r19:r18                       ; delay register for delay macro
 
-.equ    time_0, 0x0200
+.equ    time_0, 33
 
         .section .text
         .global  main
@@ -35,6 +33,7 @@ reset_handler:
         ldi     temp_16, 0x1c
         out     VPA_DIR, temp_16   ; PA2-4 outputs
 
+        rcall   set_8M                  ; optional, change system clock, see library/clocks
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
         ldi     temp_16, NUM_TASKS - 1  ; index of last entry (count auto-computed)
