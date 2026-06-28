@@ -18,7 +18,7 @@
 ; register r0       r0      // Reserved, used as scratch register, LPM/SPM, MUL
 ; register r1       r1      // Reserved, always 0
 #define ISR_2       r2      // used in sys_clock ISR for temp register
-; free              r3      
+#define ISR_3       r3      
 #define index_4     r4      // tracks index of task executing
 #define out_5       r5      // identifies task on output pins
 #define temp_6      r6      // temp register (lo) for r0-r15
@@ -41,10 +41,10 @@
 ;free               r23
 #define char_24     r24     // serial: byte to send/receive
 ; free              r25
-#define tasks_26    r26     // X lo, buffer address pointer
-#define tasks_27    r27     // X hi, buffer address pointer
-; free              r28
-; free              r29
+#define tasks_26    r26     // X lo, task buffer address pointer
+#define tasks_27    r27     // X hi, task buffer address pointer
+#define task_SP_28  r28     // Y lo, task stack pointer
+#define task_SP_29  r29     // Y hi, task stack pointer
 #define Z_30_lo     r30     // Z register for program memory lo
 #define Z_31_hi     r31     // Z register for program memory hi
 

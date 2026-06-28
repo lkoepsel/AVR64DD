@@ -58,7 +58,7 @@
 ;  __vector_9 overrides the CRT's weak symbol for TCA0_OVF_vect (C builds).
 ;  TCA0_OVF_handler is kept as an alias so pure-asm vector tables still link.
 ;
-;  Confirmed: TCA0_OVF_vect = _VECTOR(9), table byte address 0x12
+;  TCA0_OVF_vect = _VECTOR(9), table byte address 0x12
 ;  (vector 9 * 2 bytes per rjmp slot = 0x12).
 ; --------------------------------------------------------------------
 .global __vector_9
@@ -119,6 +119,47 @@ init_sysclock_1k:
     ret
 
 ; --------------------------------------------------------------------
+;  init_sysclock_4k
+;  Configure TCA0 in NORMAL mode to overflow at 1 kHz (1 ms ticks) and
+;  enable the OVF interrupt. Assumes 4 MHz main clock (post-reset OSCHF).
+;
+;    prescale = 16  (CLKSEL = DIV16)
+;    PER      = 249 -> overflow every (249+1) counts
+;    f = 16MHz / (16 * 250) = 4000.0 Hz  (250ms)
+; --------------------------------------------------------------------
+.global init_sysclock_4k
+init_sysclock_4k:
+    ; clear the tick counter
+    eor     ticks_8_lo, ticks_8_lo          ; ticks_8_lo = 0
+    eor     ticks_9_hi, ticks_9_hi          ; ticks_9_hi = 0
+
+    ; --- set PER = 249 (16-bit write; low byte then high byte) ---
+    ;     TCA in SINGLE mode: PER is 16-bit at TCA0.SINGLE.PER
+    ldi     temp_16, lo8(249)
+    sts     TCA0_SINGLE_PERL, temp_16
+    ldi     temp_16, hi8(249)
+    sts     TCA0_SINGLE_PERH, temp_16
+
+    ; --- WGMODE = NORMAL (CTRLB low 3 bits = 0) ---
+    ;     *_gc group codes are C enum constants in modern avr-libc and are
+    ;     invisible to the assembler -- build the field from its *_gp #define.
+    ldi     temp_16, (0x0 << TCA_SINGLE_WGMODE_gp)   ; WGMODE = NORMAL (0)
+    sts     TCA0_SINGLE_CTRLB, temp_16
+
+    ; --- enable the overflow interrupt: INTCTRL.OVF = 1 ---
+    ldi     temp_16, TCA_SINGLE_OVF_bm
+    sts     TCA0_SINGLE_INTCTRL, temp_16
+
+    ; --- start the timer: CLKSEL = DIV16, ENABLE = 1 ---
+    ;     CLKSEL DIV16 value = 0x4 (see TCA_SINGLE_CLKSEL_DIV16_gv); shift it
+    ;     into the CLKSEL field with *_gp, then OR in the ENABLE bit mask.
+    ldi     temp_16, (0x4 << TCA_SINGLE_CLKSEL_gp) | TCA_SINGLE_ENABLE_bm
+    sts     TCA0_SINGLE_CTRLA, temp_16
+
+    sei                                 ; global interrupt enable
+    ret
+
+; --------------------------------------------------------------------
 ;  ticks  - return the current 16-bit tick count in r25:r24
 ;           (matches the tiny13 module's movw-based return convention)
 ;
@@ -127,10 +168,10 @@ init_sysclock_1k:
 ; --------------------------------------------------------------------
 .global ticks
 ticks:
-    in      ISR_2, CPU_SREG      ; save I-flag state
-    cli                             ; atomic 16-bit read
-    movw    r24, ticks_8_lo           ; r25:r24 <- r9:r8
-    out     CPU_SREG, ISR_2      ; restore (re-enables I if it was set)
+    in      ISR_2, CPU_SREG     ; save I-flag state
+    cli                         ; atomic 16-bit read
+    movw    r24, ticks_8_lo     ; r25:r24 <- r9:r8
+    out     CPU_SREG, ISR_2     ; restore (re-enables I if it was set)
     ret
 
 ; ====================================================================
