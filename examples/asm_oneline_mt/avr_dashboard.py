@@ -18,4 +18,4 @@ REGS_PER_ROW = 4
 # AvrSram module (avr_modules.py) shows addr + 16 hex bytes + ASCII per row and
 # is auto-added to the layout when this list is non-empty. Dump the start of
 # SRAM here; point at a .data/.bss label's address instead once you add one.
-AVR_SRAM = [(0x6000, 0x80, "tasks")]
+AVR_SRAM = [(0x6000, 0x80, "tasks"),(0x7ff0, 0x10, "stack")]

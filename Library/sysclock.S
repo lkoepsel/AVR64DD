@@ -65,10 +65,12 @@
 __vector_9:
 TCA0_OVF_handler:
     in      ISR_2, CPU_SREG          ; save status flags
+    push    temp_16                  ; ISR must preserve mainline scratch (r16)
     ; --- clear the OVF interrupt flag by writing 1 to it ---
     ;     TCA0.SINGLE.INTFLAGS, OVF bit (bit 0). Write-1-to-clear.
     ldi     temp_16, TCA_SINGLE_OVF_bm
     sts     TCA0_SINGLE_INTFLAGS, temp_16
+    pop     temp_16                  ; restore r16 before returning to mainline
     ; --- increment the 16-bit tick counter ---
     inc     ticks_8_lo                    ; r8++
     brne    1f                          ; no carry -> done
@@ -156,7 +158,7 @@ init_sysclock_4k:
     ldi     temp_16, (0x4 << TCA_SINGLE_CLKSEL_gp) | TCA_SINGLE_ENABLE_bm
     sts     TCA0_SINGLE_CTRLA, temp_16
 
-    sei                                 ; global interrupt enable
+    ; sei                                 ; global interrupt enable
     ret
 
 ; --------------------------------------------------------------------

@@ -76,7 +76,7 @@ init_sysclock_100u:
     ;     #define TCB_ENABLE_bm  0x01  /* Enable bit mask. */
     ldi   temp_16, (0 << 1) | (1 << 0)
     sts   TCB0_CTRLA, temp_16
-    sei
+    ; sei
     ret
 
 ; --------------------------------------------------------------------
@@ -86,9 +86,11 @@ init_sysclock_100u:
 __vector_14:
 TCB0_INT_handler:
     in    ISR_3, SREG               ; save flags in dedicated low reg
+    push  temp_17                   ; ISR must preserve mainline scratch (r17)
 
     ldi   temp_17, TCB_CAPT_bm      ; clear CAPT by writing 1
     sts   TCB0_INTFLAGS, temp_17
+    pop   temp_17                   ; restore r17 before returning to mainline
 
     st    X+, task_21               ; on interrupt, save task to buffer
     

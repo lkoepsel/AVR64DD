@@ -58,10 +58,12 @@ reset_handler:
         ldi     temp_16, 0x1c
         out     VPA_DIR, temp_16        ; PA2-4 outputs
 
-        ; rcall   set_16M                 ; 16Mhz clock, 62.5ns clock cycle
-        ; rcall   init_sysclock_100u      ; setup ISR to track tasks running
+        rcall   set_16M                 ; 16Mhz clock, 62.5ns clock cycle
+        rcall   init_sysclock_100u      ; setup ISR to track tasks running
         rcall   init_sysclock_4k        ; setup ISR for task timing
-        ; rcall   init_serial             ; setup serial console
+        rcall   init_serial             ; setup serial console
+        sei
+
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
         ldi     temp_16, NUM_TASKS - 1          ; index of last entry (count auto-computed)
