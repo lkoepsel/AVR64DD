@@ -35,7 +35,7 @@ __vectors:
 
 ; ---------- Registers and Values (includes ISR) --------------
 ; r4                            ; saved index for jump table
-; r7:r6                         ; temp registers for lpm command
+; r7:r6                         ; temp registers for stack init and lpm command
 ; r16                           ; temp register
 ; r17                           ; temp register
 ; r19:r18                       ; delay register
@@ -45,7 +45,7 @@ __vectors:
 ; ---------- Reserved registers ----------
 ; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
 
-.equ    time_0, 0x0100              ; time per task, 4*256*62.5ns = 64ms
+.equ    time_0, 0x2000              ; time per task, 4*256*62.5ns = 64us
 
         .section .text
         .global  main
@@ -64,10 +64,24 @@ reset_handler:
         rcall   init_serial             ; setup serial console
         sei
 
+init_tasks:
+        ; initialize task's individual stack
+        ldi     YL, lo8(task_stacks + NUM_TASKS * STACK_SIZE)
+        ldi     YH, hi8(task_stacks + NUM_TASKS * STACK_SIZE)
+        ldi     temp_22, lo8(task_stacks)
+        ldi     temp_23, hi8(task_stacks)
+
+clear_mem:
+        st      -Y, r1                  ; initialize task_stacks to 0
+        cp      YL, temp_22
+        cpc     YH, temp_23
+        brne    clear_mem
+
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
-        ldi     temp_16, NUM_TASKS - 1          ; index of last entry (count auto-computed)
-        mov     index_4, temp_16            ; r4 = saved index, survives icall
+        ldi     temp_16, NUM_TASKS - 1   ; index of last entry (count auto-computed)
+        mov     index_4, temp_16         ; r4 = saved index, survives icall
+
 dispatch:
         ; Z = jump_table + (index * 1 word)
         mov     temp_16, index_4        ; working copy of the index

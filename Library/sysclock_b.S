@@ -114,4 +114,8 @@ TCB0_INT_handler:
 .section .bss
     .equ    tasks_size, 0x80
 tasks:
-    .space tasks_size                    ; reserve 100 bytes for task storage
+    .space tasks_size               ; reserve 100 bytes for task storage
+
+    .equ    STACK_SIZE, 0x10
+task_stacks:
+    .space NUM_TASKS * STACK_SIZE                       ; reserve STACK_SIZE bytes per task
