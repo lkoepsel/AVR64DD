@@ -35,13 +35,13 @@ __vectors:
 
 ; ---------- Registers and Values (includes ISR) --------------
 ; r4                            ; saved index for jump table
-; r7:r6                         ; temp registers for stack init and lpm command
+; r7:r6                         ; temp registers for lpm command
 ; r16                           ; temp register
 ; r17                           ; temp register
 ; r19:r18                       ; delay register
 ; r20                           ; temp register in task
 ; r21                           ; tracks executing task
-; r27:r26 (X)                   ; pointer to SRAM tasks buffer
+; r27:r26 (X)                   ; stack init and pointer to SRAM tasks buffer
 ; ---------- Reserved registers ----------
 ; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
 
@@ -55,6 +55,18 @@ reset_handler:
         eor     r1, r1
         out     STATUS, r1
 
+init_tasks:
+        ; initialize task's individual stack
+        ldi     YL, lo8(task_stacks)
+        ldi     YH, hi8(task_stacks)
+        ldi     tasks_26, lo8(NUM_TASKS * STACK_SIZE)
+        ldi     tasks_27, hi8(NUM_TASKS * STACK_SIZE)
+
+clear_mem:
+        st      Y+, r1                  ; initialize task_stacks to 0
+        sbiw    tasks_26, 1
+        brne    clear_mem
+
         ldi     temp_16, 0x1c
         out     VPA_DIR, temp_16        ; PA2-4 outputs
 
@@ -63,19 +75,6 @@ reset_handler:
         rcall   init_sysclock_4k        ; setup ISR for task timing
         rcall   init_serial             ; setup serial console
         sei
-
-init_tasks:
-        ; initialize task's individual stack
-        ldi     YL, lo8(task_stacks + NUM_TASKS * STACK_SIZE)
-        ldi     YH, hi8(task_stacks + NUM_TASKS * STACK_SIZE)
-        ldi     temp_22, lo8(task_stacks)
-        ldi     temp_23, hi8(task_stacks)
-
-clear_mem:
-        st      -Y, r1                  ; initialize task_stacks to 0
-        cp      YL, temp_22
-        cpc     YH, temp_23
-        brne    clear_mem
 
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
@@ -106,7 +105,11 @@ dispatch:
 
 ; ---- Tasks ----
 task0:
-        ldi     task_21, 0x00
+        .equ    t0, 1        
+        ldi     YL, lo8(task_stacks + (t0 * STACK_SIZE))
+        ldi     YH, hi8(task_stacks + (t0 * STACK_SIZE))
+        ldi     task_21, t0 - 1
+        mov     out_5, task_21
         out     VPA_OUT, out_5
         delay_16 time_0
         rcall   ticks
@@ -114,7 +117,10 @@ task0:
         ret
 
 task1:
-        ldi     task_21, 0x01
+        .equ    t1, 2        
+        ldi     YL, lo8(task_stacks + (t1 * STACK_SIZE))
+        ldi     YH, hi8(task_stacks + (t1 * STACK_SIZE))
+        ldi     task_21, t1 - 1
         mov     out_5, task_21
         lsl     out_5
         lsl     out_5
@@ -123,7 +129,10 @@ task1:
         ret
 
 task2:
-        ldi     task_21, 0x02
+        .equ    t2, 3        
+        ldi     YL, lo8(task_stacks + (t2 * STACK_SIZE))
+        ldi     YH, hi8(task_stacks + (t2 * STACK_SIZE))
+        ldi     task_21, t2 - 1
         mov     out_5, task_21
         lsl     out_5
         lsl     out_5
@@ -132,7 +141,10 @@ task2:
         ret
 
 task3:
-        ldi     task_21, 0x03
+        .equ    t3, 4        
+        ldi     YL, lo8(task_stacks + (t3 * STACK_SIZE))
+        ldi     YH, hi8(task_stacks + (t3 * STACK_SIZE))
+        ldi     task_21, t3 - 1
         mov     out_5, task_21
         lsl     out_5
         lsl     out_5
@@ -141,7 +153,10 @@ task3:
         ret
 
 task4:
-        ldi     task_21, 0x4
+        .equ    t4, 5        
+        ldi     YL, lo8(task_stacks + (t4 * STACK_SIZE))
+        ldi     YH, hi8(task_stacks + (t4 * STACK_SIZE))
+        ldi     task_21, t4 - 1
         mov     out_5, task_21
         lsl     out_5
         lsl     out_5
@@ -150,7 +165,10 @@ task4:
         ret
 
 task5:
-        ldi     task_21, 0x5
+        .equ    t5, 6        
+        ldi     YL, lo8(task_stacks + (t5 * STACK_SIZE))
+        ldi     YH, hi8(task_stacks + (t5 * STACK_SIZE))
+        ldi     task_21, t5 - 1
         mov     out_5, task_21
         lsl     out_5
         lsl     out_5
@@ -159,7 +177,10 @@ task5:
         ret
 
 task6:
-        ldi     task_21, 0x6
+        .equ    t6, 7       
+        ldi     YL, lo8(task_stacks + (t6 * STACK_SIZE))
+        ldi     YH, hi8(task_stacks + (t6 * STACK_SIZE))
+        ldi     task_21, t6 - 1
         mov     out_5, task_21
         lsl     out_5
         lsl     out_5
@@ -168,7 +189,10 @@ task6:
         ret
 
 task7:
-        ldi     task_21, 0x7
+        .equ    t7, 8       
+        ldi     YL, lo8(task_stacks + (t7 * STACK_SIZE))
+        ldi     YH, hi8(task_stacks + (t7 * STACK_SIZE))
+        ldi     task_21, t7 - 1
         mov     out_5, task_21
         lsl     out_5
         lsl     out_5
