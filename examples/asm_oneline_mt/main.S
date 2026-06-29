@@ -104,6 +104,11 @@ dispatch:
 
 
 ; ---- Tasks ----
+; * get task stack pointer
+; * output task number to port pins
+; * get current ticks
+; * calculate delta
+; * compare to execute time
 task0:
         .equ    t0, 1        
         ldi     YL, lo8(task_stacks + (t0 * STACK_SIZE))
