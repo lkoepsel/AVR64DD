@@ -25,8 +25,8 @@
 #define temp_7      r7      // temp register (hi) for r0-r15
 #define ticks_8_lo  r8      // used in sys_clock ISR for ticks
 #define ticks_9_hi  r9      // used in sys_clock ISR for ticks
-#define start_10    r10
-#define start_11    r11
+#define temp_10    r10
+#define temp_11    r11
 ; free              r12
 ; free              r13
 ; free              r14
@@ -37,8 +37,8 @@
 #define delay_19    r19     // used for macro delay_16
 #define temp_20     r20     // used for ldi commands
 #define task_21     r21     // used to save the current task running
-#define temp_22     r22     // used for ldi commands
-#define temp_23     r23     // used for ldi commands
+; free              r22     // 
+; free              r23     // 
 #define char_24     r24     // serial: byte to send/receive
 ; free              r25
 #define tasks_26    r26     // X lo, task buffer address pointer

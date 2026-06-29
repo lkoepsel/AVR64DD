@@ -36,7 +36,7 @@
 .section .text
 
 ; ---------- Registers and Values ----------------
-; r11:r10                       ; initial ticks count (start_10)
+; r11:r10                       ; initial ticks count (temp_10)
 ; r7:r6                         ; final ticks count and delta (temp_6)
 ; r15                           ; temp register, saved in ISR
 ; r16                           ; temp register
@@ -74,7 +74,7 @@ main_loop:
     rcall   char_write
 
     ; get ticks start
-    movw   start_10, ticks_8_lo
+    movw   temp_10, ticks_8_lo
 
     delay_16 COUNTER
 
@@ -82,8 +82,8 @@ main_loop:
     movw    temp_6, ticks_8_lo
 
     ; delta ticks = end - start
-    sub     temp_6, start_10
-    sbc     temp_7, start_11
+    sub     temp_6, temp_10
+    sbc     temp_7, temp_11
 
     ; print delta ticks in hex
     mov     char_24, temp_7
