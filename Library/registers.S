@@ -25,8 +25,8 @@
 #define temp_7      r7      // temp register (hi) for r0-r15
 #define ticks_8_lo  r8      // used in sys_clock ISR for ticks
 #define ticks_9_hi  r9      // used in sys_clock ISR for ticks
-#define temp_10    r10
-#define temp_11    r11
+#define temp_10     r10     // temp registers, sysclock, oneline_mt
+#define temp_11     r11     // temp registers, sysclock, oneline_mt
 ; free              r12
 ; free              r13
 ; free              r14

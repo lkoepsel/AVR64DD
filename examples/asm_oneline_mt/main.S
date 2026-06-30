@@ -56,17 +56,17 @@ reset_handler:
         out     STATUS, r1
 
 init_tasks:
-        ; initialize task's individual stack
+        ; clear entire task_stacks
         ldi     YL, lo8(task_stacks)
         ldi     YH, hi8(task_stacks)
         ldi     tasks_26, lo8(NUM_TASKS * STACK_SIZE)
         ldi     tasks_27, hi8(NUM_TASKS * STACK_SIZE)
-
 clear_mem:
         st      Y+, r1                  ; initialize task_stacks to 0
         sbiw    tasks_26, 1
         brne    clear_mem
 
+        ; set debug pins to output
         ldi     temp_16, 0x1c
         out     VPA_DIR, temp_16        ; PA2-4 outputs
 
@@ -74,7 +74,7 @@ clear_mem:
         rcall   init_sysclock_100u      ; setup ISR to track tasks running
         rcall   init_sysclock_4k        ; setup ISR for task timing
         rcall   init_serial             ; setup serial console
-        sei
+        sei                             ; enable interrupts
 
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
@@ -105,10 +105,18 @@ dispatch:
 
 ; ---- Tasks ----
 ; * get task stack pointer
+;       Stack variables
+;       0 - state - status, I/O state 
+;       1 - ON time
+;       2 - OFF time
+;       3 - elapsed time
+;       
 ; * output task number to port pins
 ; * get current ticks
 ; * calculate delta
-; * compare to execute time
+; * compare to ON/OFF time
+; * if true, change state
+; * exit
 task0:
         .equ    t0, 1        
         ldi     YL, lo8(task_stacks + (t0 * STACK_SIZE))
