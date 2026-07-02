@@ -257,7 +257,7 @@ update:
         ldd     r24, Y+PIN                    ; arg1: pin
 
         rcall   bitmask                 ; r24 = (1 << pin)
-        sts     VPA_OUT + 0x06, r24       ; PORTA.OUTSET — turn it off
+        sts     VPA_CLR, r24       ; PORTA.OUTSET — turn it off
 
         rjmp    upd_done
 
@@ -275,7 +275,7 @@ state_is_low:
         std     Y+ELAPSED+1, r25             ; elapsed = now (high)
         ldd     r24, Y+PIN                    ; arg1: pin
         rcall   bitmask                 ; r24 = (1 << pin)
-        sts     VPA_OUT + 0x05, r24       ; PORTA.OUTSET — turn it on
+        sts     VPA_SET, r24       ; PORTA.OUTSET — turn it on
 
 upd_done:
         pop     r17
