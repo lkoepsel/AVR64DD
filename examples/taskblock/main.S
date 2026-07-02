@@ -235,7 +235,7 @@ update:
         mov     r18, r24
         mov     r19, r25
         sub     r18, r20
-        sbc     r19, r21                      ; r19:r18 = now - elapsed
+        sbc     r19, r21                ; r19:r18 = now - elapsed
 
         ;----- branch on current state -------------------------------------
         ldd     r16, Y+STATE
@@ -243,39 +243,39 @@ update:
         brne    state_is_low
 
 ;--- state == HIGH : expire after ON_TIME ---
-        ldd     r22, Y+ON_TIME               ; threshold low
-        ldd     r23, Y+ON_TIME+1             ; threshold high
+        ldd     r22, Y+ON_TIME          ; threshold low
+        ldd     r23, Y+ON_TIME+1        ; threshold high
         ; if (diff >= on)  i.e. NOT (diff < on)
         cp      r18, r22
         cpc     r19, r23
-        brlo    upd_done                      ; diff < on -> not yet
+        brlo    upd_done                ; diff < on -> not yet
         ; --- turn OFF ---
         ldi     r16, LOW
-        std     Y+STATE, r16                 ; state = LOW
-        std     Y+ELAPSED,   r24             ; elapsed = now (low)
-        std     Y+ELAPSED+1, r25             ; elapsed = now (high)
-        ldd     r24, Y+PIN                    ; arg1: pin
+        std     Y+STATE, r16    ; state = LOW
+        std     Y+ELAPSED,   r24        ; elapsed = now (low)
+        std     Y+ELAPSED+1, r25        ; elapsed = now (high)
+        ldd     r24, Y+PIN              ; arg1: pin
 
         rcall   bitmask                 ; r24 = (1 << pin)
-        sts     VPA_CLR, r24       ; PORTA.OUTSET — turn it off
+        sts     PORTA_CLR, r24          ; PORTA.OUTSET — turn it off
 
         rjmp    upd_done
 
 ;--- state == LOW : expire after OFF_TIME ---
 state_is_low:
-        ldd     r22, Y+OFF_TIME              ; threshold low
-        ldd     r23, Y+OFF_TIME+1            ; threshold high
+        ldd     r22, Y+OFF_TIME         ; threshold low
+        ldd     r23, Y+OFF_TIME+1       ; threshold high
         cp      r18, r22
         cpc     r19, r23
-        brlo    upd_done                      ; diff < off -> not yet
+        brlo    upd_done                ; diff < off -> not yet
         ; --- turn ON ---
         ldi     r16, HIGH
-        std     Y+STATE, r16                 ; state = HIGH
-        std     Y+ELAPSED,   r24             ; elapsed = now (low)
-        std     Y+ELAPSED+1, r25             ; elapsed = now (high)
-        ldd     r24, Y+PIN                    ; arg1: pin
+        std     Y+STATE, r16            ; state = HIGH
+        std     Y+ELAPSED,   r24        ; elapsed = now (low)
+        std     Y+ELAPSED+1, r25        ; elapsed = now (high)
+        ldd     r24, Y+PIN              ; arg1: pin
         rcall   bitmask                 ; r24 = (1 << pin)
-        sts     VPA_SET, r24       ; PORTA.OUTSET — turn it on
+        sts     PORTA_SET, r24          ; PORTA.OUTSET — turn it on
 
 upd_done:
         pop     r17
