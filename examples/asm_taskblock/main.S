@@ -1,55 +1,78 @@
 ;==============================================================================
-;  taskblock.S
+;  multitask_dd32.S
 ;------------------------------------------------------------------------------
-;  Copy an initialized 16-byte task_block from Flash (LMA) into SRAM (VMA),
-;  then access its fields by name using Y-pointer displacement addressing.
+;  Assembly version of the "one-line kernel" cooperative multitasker.
+;  Port of main.c (Adafruit "Classy" multitasking, C-struct form).
 ;
-;  Demonstrates:
-;    - .data section with mixed initialized + zero-filled bytes (.zero)
-;    - .set field offsets used as ldd/std displacements (the "struct" pattern)
-;    - A hand-rolled __do_copy_data equivalent (bare-metal, -nostartfiles)
-;    - Assembly-time size assertion (.if / .error)
+;  An array of MAX_FLASHERS task blocks each drive a pin on/off on its own
+;  schedule. The main loop walks the array calling update() on each task;
+;  update() compares (now - elapsed) against the on/off threshold and toggles
+;  the pin when the interval expires.
+;
+;  Task block mirrors this C struct, but with 16-bit timing fields
+;  (C used uint32_t; 16-bit ms gives ~65 s range, ample for a blinker and
+;   keeps the arithmetic to single ADD/SUB/CP pairs):
+;
+;      struct flasher {
+;          uint8_t  pin;      // output pin number
+;          uint8_t  state;    // HIGH or LOW
+;          uint16_t on;       // time on   (was uint32_t)
+;          uint16_t off;      // time off  (was uint32_t)
+;          uint16_t elapsed;  // time of last toggle (was uint32_t)
+;      };
+;
+;  External dependencies (declared .extern, called per AVR ABI):
+;    ticks         -> returns elapsed tick count (ms) in r24:r25
+;    init_sysclock_2
+;    pinMode       (pin in r24, dir in r22)
+;    digitalWrite  (pin in r24, level in r22)
 ;
 ;  Target : AVR64DD32  (Curiosity Nano)
-;  Clock  : n/a (no timing-dependent code)
-;  Build  : avr-gcc -nostartfiles -mmcu=avr64dd32 -o task_init.elf task_init_dd32.S
+;  Build  : avr-gcc -nostartfiles -mmcu=avr64dd32 -o multitask.elf \
+;             multitask_dd32.S ticks.S sysclock.S pinMode.S digitalWrite.S
 ;  Debug  : avr-gdb  (Bloom GDB RSP server @ 127.0.0.1:1442)
 ;==============================================================================
 
 #include <avr/io.h>
+#include "sysclock.S"
 
 ;------------------------------------------------------------------------------
+;  Constants
+;------------------------------------------------------------------------------
+        .set    MAX_FLASHERS, 3
+        .set    DEFAULT_ON,   100
+        .set    DEFAULT_OFF,  100
+
+        .set    LOW,          0
+        .set    HIGH,         1
+        .set    OUTPUT,       1               ; match pinMode() convention
+
+;------------------------------------------------------------------------------
+;  Task block field offsets (assembly-time constants; zero storage)
+;------------------------------------------------------------------------------
+        .set    PIN,      0                   ; 1 byte  output pin number
+        .set    STATE,    1                   ; 1 byte  HIGH / LOW
+        .set    ON_TIME,  2                   ; 2 bytes time on   (LE word)
+        .set    OFF_TIME, 4                   ; 2 bytes time off  (LE word)
+        .set    ELAPSED,  6                   ; 2 bytes last-toggle timestamp
+        .set    SIZE,     8                   ; bytes per task (no padding here)
+
+;==============================================================================
 ;  Registers and Values
 ;------------------------------------------------------------------------------
-;  r16        : scratch (stack-pointer setup)
-;  r18, r19   : task_block SP field, low / high
-;  r20        : scratch (status write-back)
-;  r24        : copy byte / field reads (status)
-;  r25        : copy compare high byte / field reads (priority)
-;  X (r26:27) : copy DESTINATION pointer -> SRAM   (__data_start .. __data_end)
-;  Y (r28:29) : task_block base pointer (field access via displacement)
-;  Z (r30:31) : copy SOURCE pointer     -> Flash  (__data_load_start)
+;  Globals / call-saved usage:
+;    Y (r28:29) : per-task base pointer inside update()  (call-saved)
+;    r17        : loop counter (flasher index) in main    (call-saved)
 ;
-;  Task block field offsets (assembly-time constants, zero bytes of storage):
-;    TB_STATUS = 0   1 byte   run state
-;    TB_PRIO   = 1   1 byte   priority
-;    TB_SP     = 2   2 bytes  saved stack pointer (little-endian)
-;    TB_STACK  = 4  12 bytes  scratch / saved context (zero-initialized)
-;    TB_SIZE   = 16          total block size
+;  update() scratch (caller-saved r18..r27, r30..r31):
+;    r24:r25  : now = ticks()  ; also pin arg / field temporaries
+;    r22:r23  : threshold (on or off) and digitalWrite level arg
+;    r20:r21  : (now - elapsed) difference
+;    r18      : state temp
 ;==============================================================================
-
-        .set    TB_STATUS,   0
-        .set    TB_PRIO,     1
-        .set    TB_SP,       2
-        .set    TB_STACK,    4
-        .set    TB_SIZE,     16
 
 ;==============================================================================
 ;  SECTION 1 : Vectors
-;------------------------------------------------------------------------------
-;  Minimal hand-rolled table. Reset vector (address 0) jumps to _start.
-;  Unused vectors fall through to a parked reti. Extend as peripherals are
-;  enabled (see your main_dd32.S house pattern).
 ;==============================================================================
 
         .section .vectors, "ax", @progbits
@@ -57,30 +80,49 @@
 __vectors:
         rjmp    _start                  ; 0x00  RESET
         reti                            ; 0x02  (unused IRQ - park)
-        ; ... add further vectors here as needed ...
 
 ;==============================================================================
 ;  SECTION 2 : Data
 ;------------------------------------------------------------------------------
-;  task_block lives in .data: its initialization image is stored in Flash
-;  (load address / LMA) and is copied to SRAM (virtual address / VMA) by the
-;  copy_data routine below before main runs.
+;  flashers[MAX_FLASHERS] : array of task blocks, accessed as flashers + id*SIZE.
+;  Initialized here directly (the C init() runs at startup; doing it as a Flash
+;  image + copy means each task is live the moment .data is copied to SRAM).
+;
+;  Schedules mirror the C main():
+;    [0] pin 2, 100 on / 100 off
+;    [1] pin 3, 200 on / 200 off   (DEFAULT << 1)
+;    [2] pin 4, 400 on / 400 off   (DEFAULT << 2)
+;  All start LOW with elapsed = 0.
 ;==============================================================================
 
         .section .data
-        .global  task_block
-task_block:
-        .byte   0x01                    ; TB_STATUS
-        .byte   0x04                    ; TB_PRIO
-        .word   0x21FF                  ; TB_SP   (stored LE: FF 21)
-        .zero   12                      ; TB_STACK : 12 zero bytes
+        .global  flashers
+flashers:
+        ; --- task 0 ---
+        .byte   2                       ; PIN
+        .byte   LOW                     ; STATE
+        .word   DEFAULT_ON              ; ON_TIME  = 100
+        .word   DEFAULT_OFF             ; OFF_TIME = 100
+        .word   0                       ; ELAPSED
+        ; --- task 1 ---
+        .byte   3
+        .byte   LOW
+        .word   DEFAULT_ON  << 1        ; 200
+        .word   DEFAULT_OFF << 1        ; 200
+        .word   0
+        ; --- task 2 ---
+        .byte   4
+        .byte   LOW
+        .word   DEFAULT_ON  << 2        ; 400
+        .word   DEFAULT_OFF << 2        ; 400
+        .word   0
 
-        ; Assembly-time guard: actual size must equal declared TB_SIZE.
-        ; Break .zero to 11 to watch this stop the build.
-        .if     (. - task_block) != TB_SIZE
-        .error  "task_block size mismatch"
+        ; Guard: array must be exactly MAX_FLASHERS * SIZE bytes.
+        .if     (. - flashers) != (MAX_FLASHERS * SIZE)
+        .error  "flashers array size mismatch"
         .endif
 
+        .equ    PA_OUT, 0b00011100        ; PA2-4 are output pins 0x1C
 ;==============================================================================
 ;  SECTION 3 : Code
 ;==============================================================================
@@ -88,25 +130,20 @@ task_block:
         .section .text
         .global  _start
         .global  main
+        .global  update
+
+        .extern  ticks
+        .extern  init_sysclock_2
+        .extern  digitalWrite
 
 ;------------------------------------------------------------------------------
 ;  _start : entry from RESET vector
 ;------------------------------------------------------------------------------
 _start:
-        ;----- Initialize the stack pointer to top of SRAM -----
-        ldi     r16, lo8(RAMEND)
-        out     CPU_SPL, r16
-        ldi     r16, hi8(RAMEND)
-        out     CPU_SPH, r16
 
 ;------------------------------------------------------------------------------
-;  copy_data : Flash (LMA) -> SRAM (VMA)
-;    Hand-rolled equivalent of avr-libc's __do_copy_data.
-;    X -> SRAM destination, Z -> Flash source.
-;    Loop terminates on pointer compare against __data_end (NOT a byte count),
-;    so it stays correct if more .data is added later.
-;    .data's Flash image sits in low 64 KB on this part, so plain LPM is fine
-;    (no RAMPZ / ELPM needed).
+;  copy_data : Flash (LMA) -> SRAM (VMA)  (hand-rolled __do_copy_data)
+;    Copies the initialized flashers[] image into SRAM so the tasks are live.
 ;------------------------------------------------------------------------------
 copy_data:
         ldi     r26, lo8(__data_start)        ; X -> SRAM dest
@@ -114,33 +151,130 @@ copy_data:
         ldi     r30, lo8(__data_load_start)   ; Z -> Flash src
         ldi     r31, hi8(__data_load_start)
 copy_loop:
-        cpi     r26, lo8(__data_end)          ; X == __data_end ?
+        cpi     r26, lo8(__data_end)
         ldi     r25, hi8(__data_end)
         cpc     r27, r25
-        breq    copy_done                     ;   yes -> finished
-        lpm     r24, Z+                        ; r24 <- Flash[Z], Z++
-        st      X+,  r24                       ; SRAM[X] <- r24, X++
+        breq    copy_done
+        lpm     r24, Z+
+        st      X+,  r24
         rjmp    copy_loop
 copy_done:
 
 ;------------------------------------------------------------------------------
-;  main : access the now-initialized block by field name
+;  main
 ;------------------------------------------------------------------------------
 main:
-        ldi     r28, lo8(task_block)          ; Y -> block base
-        ldi     r29, hi8(task_block)
+        ; set pins to output
+        ldi     temp_16, PA_OUT
+        out     VPA_DIR, temp_16                ; PA2-4 outputs
 
-        ldd     r24, Y+TB_STATUS              ; r24 <- 0x01  (status)
-        ldd     r25, Y+TB_PRIO               ; r25 <- 0x04  (priority)
-        ldd     r18, Y+TB_SP                  ; r18 <- 0xFF  (SP low)
-        ldd     r19, Y+TB_SP+1               ; r19 <- 0x21  (SP high)
+        rcall   init_sysclock_1k               ; start the millisecond tick
 
-        ldi     r20, 0x02
-        std     Y+TB_STATUS, r20             ; status <- 0x02
+        ;----- Scheduler: forever, update each task ------------------------
+        ; while (1) for (i = 0; i < MAX_FLASHERS; ++i) update(i);
+sched_loop:
+        ldi     r17, 0                        ; flasher index
+upd_next:
+        mov     r24, r17                      ; arg: flasherID
+        push    r17
+        rcall   update
+        pop     r17
+        inc     r17
+        cpi     r17, MAX_FLASHERS
+        brlo    upd_next
+        rjmp    sched_loop
 
-end:
-        rjmp    end                           ; park
+;------------------------------------------------------------------------------
+;  update(uint8_t flasherID)   flasherID in r24
+;------------------------------------------------------------------------------
+;  Computes Y = flashers + flasherID*SIZE, then replicates the C logic:
+;
+;    now = ticks();
+;    if (state == HIGH && (now - elapsed) >= on)  { state=LOW;  elapsed=now;
+;                                                    digitalWrite(pin, LOW);  }
+;    else if (state == LOW && (now - elapsed) >= off) { state=HIGH; elapsed=now;
+;                                                    digitalWrite(pin, HIGH); }
+;
+;  All time math is unsigned 16-bit; the (now - elapsed) subtraction wraps
+;  correctly modulo 65536, same as the C uint arithmetic.
+;------------------------------------------------------------------------------
+update:
+        push    r28                           ; preserve caller's Y
+        push    r29
+        push    r17
+
+        ;----- Y = flashers + flasherID * SIZE -----------------------------
+        ; SIZE == 8, so index*8 = index << 3.
+        mov     r30, r24                      ; r30 = flasherID
+        ldi     r31, 0
+        lsl     r30                           ; *2
+        rol     r31
+        lsl     r30                           ; *4
+        rol     r31
+        lsl     r30                           ; *8
+        rol     r31                           ; r31:r30 = flasherID*SIZE
+        ldi     r28, lo8(flashers)
+        ldi     r29, hi8(flashers)
+        add     r28, r30                      ; Y = flashers + offset
+        adc     r29, r31
+
+        ;----- now = ticks()  -> r24:r25 -----------------------------------
+        rcall   ticks                         ; r24:r25 = now
+        ; keep now in r24:r25 throughout
+
+        ;----- diff = now - elapsed  -> r20:r21 ----------------------------
+        ldd     r20, Y+ELAPSED                ; elapsed low
+        ldd     r21, Y+ELAPSED+1              ; elapsed high
+        ; diff = now - elapsed
+        mov     r18, r24
+        mov     r19, r25
+        sub     r18, r20
+        sbc     r19, r21                      ; r19:r18 = now - elapsed
+
+        ;----- branch on current state -------------------------------------
+        ldd     r16, Y+STATE
+        cpi     r16, HIGH
+        brne    state_is_low
+
+;--- state == HIGH : expire after ON_TIME ---
+        ldd     r22, Y+ON_TIME               ; threshold low
+        ldd     r23, Y+ON_TIME+1             ; threshold high
+        ; if (diff >= on)  i.e. NOT (diff < on)
+        cp      r18, r22
+        cpc     r19, r23
+        brlo    upd_done                      ; diff < on -> not yet
+        ; --- turn OFF ---
+        ldi     r16, LOW
+        std     Y+STATE, r16                 ; state = LOW
+        std     Y+ELAPSED,   r24             ; elapsed = now (low)
+        std     Y+ELAPSED+1, r25             ; elapsed = now (high)
+        ldd     r24, Y+PIN                    ; arg1: pin
+        ldi     r22, LOW                     ; arg2: level
+        rcall   digitalWrite
+        rjmp    upd_done
+
+;--- state == LOW : expire after OFF_TIME ---
+state_is_low:
+        ldd     r22, Y+OFF_TIME              ; threshold low
+        ldd     r23, Y+OFF_TIME+1            ; threshold high
+        cp      r18, r22
+        cpc     r19, r23
+        brlo    upd_done                      ; diff < off -> not yet
+        ; --- turn ON ---
+        ldi     r16, HIGH
+        std     Y+STATE, r16                 ; state = HIGH
+        std     Y+ELAPSED,   r24             ; elapsed = now (low)
+        std     Y+ELAPSED+1, r25             ; elapsed = now (high)
+        ldd     r24, Y+PIN                    ; arg1: pin
+        ldi     r22, HIGH                    ; arg2: level
+        rcall   digitalWrite
+
+upd_done:
+        pop     r17
+        pop     r29
+        pop     r28
+        ret
 
 ;==============================================================================
-;  End of task_init_dd32.S
+;  End of multitask_dd32.S
 ;==============================================================================
