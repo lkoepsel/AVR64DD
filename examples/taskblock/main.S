@@ -79,8 +79,17 @@
         .section .vectors, "ax", @progbits
         .global  __vectors
 __vectors:
-        rjmp    _start                  ; 0x00  RESET
-        reti                            ; 0x02  (unused IRQ - park)
+.section .vectors, "ax", @progbits
+    jmp     _start              ; 0x000  vector 0  RESET
+    jmp     0                   ; 0x004  vector 1  NMI
+    jmp     0                   ; 0x008  vector 2  BOD_VLM
+    jmp     0                   ; 0x00C  vector 3  CLKCTRL
+    jmp     0                   ; 0x010  vector 4  MVIO_MVIO
+    jmp     0                   ; 0x014  vector 5  RTC_CNT
+    jmp     0                   ; 0x018  vector 6  RTC_PIT
+    jmp     0                   ; 0x01C  vector 7  CCL_CCL
+    jmp     0                   ; 0x020  vector 8  PORTA_PORT
+    jmp     TCA0_OVF_handler    ; 0x024  vector 9  TCA0_OVF
 
 ;==============================================================================
 ;  SECTION 2 : Data
@@ -132,10 +141,6 @@ flashers:
         .global  _start
         .global  main
         .global  update
-
-        .extern  ticks
-        .extern  init_sysclock_1k
-        .extern  digitalWrite
 
 ;------------------------------------------------------------------------------
 ;  _start : entry from RESET vector
