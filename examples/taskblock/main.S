@@ -34,28 +34,29 @@
 ;==============================================================================
 
 #include <avr/io.h>
+#include "io.S"
 #include "sysclock.S"
 
 ;------------------------------------------------------------------------------
 ;  Constants
 ;------------------------------------------------------------------------------
-        .set    MAX_FLASHERS, 3
-        .set    DEFAULT_ON,   100
-        .set    DEFAULT_OFF,  100
+        .equ    MAX_FLASHERS, 3
+        .equ    DEFAULT_ON,   100
+        .equ    DEFAULT_OFF,  100
 
-        .set    LOW,          0
-        .set    HIGH,         1
-        .set    OUTPUT,       1               ; match pinMode() convention
+        .equ    LOW,          0
+        .equ    HIGH,         1
+        .equ    OUTPUT,       1               ; match pinMode() convention
 
 ;------------------------------------------------------------------------------
 ;  Task block field offsets (assembly-time constants; zero storage)
 ;------------------------------------------------------------------------------
-        .set    PIN,      0                   ; 1 byte  output pin number
-        .set    STATE,    1                   ; 1 byte  HIGH / LOW
-        .set    ON_TIME,  2                   ; 2 bytes time on   (LE word)
-        .set    OFF_TIME, 4                   ; 2 bytes time off  (LE word)
-        .set    ELAPSED,  6                   ; 2 bytes last-toggle timestamp
-        .set    SIZE,     8                   ; bytes per task (no padding here)
+        .equ    PIN,      0                   ; 1 byte  output pin number
+        .equ    STATE,    1                   ; 1 byte  HIGH / LOW
+        .equ    ON_TIME,  2                   ; 2 bytes time on   (LE word)
+        .equ    OFF_TIME, 4                   ; 2 bytes time off  (LE word)
+        .equ    ELAPSED,  6                   ; 2 bytes last-toggle timestamp
+        .equ    SIZE,     8                   ; bytes per task (no padding here)
 
 ;==============================================================================
 ;  Registers and Values
@@ -133,7 +134,7 @@ flashers:
         .global  update
 
         .extern  ticks
-        .extern  init_sysclock_2
+        .extern  init_sysclock_1k
         .extern  digitalWrite
 
 ;------------------------------------------------------------------------------
@@ -249,8 +250,10 @@ update:
         std     Y+ELAPSED,   r24             ; elapsed = now (low)
         std     Y+ELAPSED+1, r25             ; elapsed = now (high)
         ldd     r24, Y+PIN                    ; arg1: pin
-        ldi     r22, LOW                     ; arg2: level
-        rcall   digitalWrite
+
+        rcall   bitmask                 ; r24 = (1 << pin)
+        sts     VPA_OUT + 0x06, r24       ; PORTA.OUTSET — turn it off
+
         rjmp    upd_done
 
 ;--- state == LOW : expire after OFF_TIME ---
@@ -266,8 +269,8 @@ state_is_low:
         std     Y+ELAPSED,   r24             ; elapsed = now (low)
         std     Y+ELAPSED+1, r25             ; elapsed = now (high)
         ldd     r24, Y+PIN                    ; arg1: pin
-        ldi     r22, HIGH                    ; arg2: level
-        rcall   digitalWrite
+        rcall   bitmask                 ; r24 = (1 << pin)
+        sts     VPA_OUT + 0x05, r24       ; PORTA.OUTSET — turn it on
 
 upd_done:
         pop     r17
