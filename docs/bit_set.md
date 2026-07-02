@@ -45,11 +45,14 @@ Then set or clear on PORTA:
 A cleaner option specific to the DD/modern AVR-Dx: the new PORT peripheral has dedicated **OUTSET** and **OUTCLR** registers, so you don't even need the read-modify-write — just write the mask:
 
 ```asm
+#define PORTA_SET   _SFR_IO_ADDR(PORTA_OUTSET) // PORTA OUTSET  (VPORT, I/O 0x05)
+#define PORTA_CLR   _SFR_IO_ADDR(PORTA_OUTCLR) // PORTA OUTCLR  (VPORT, I/O 0x06)
+
 ; set pin high  -> write mask to PORTA.OUTSET
-        sts     PORTA + 0x05, r24       ; OUTSET: 1-bits set the pin
+        sts     PORTA_SET, r24       ; OUTSET: 1-bits set the pin
 
 ; set pin low   -> write mask to PORTA.OUTCLR
-        sts     PORTA + 0x06, r24       ; OUTCLR: 1-bits clear the pin
+        sts     PORTA_CLR, r24       ; OUTCLR: 1-bits clear the pin
 ```
 
 OUTSET/OUTCLR are atomic single-write operations — writing a 1 to a bit position sets (or clears) only that pin and ignores the 0 bits, so the other two LEDs are untouched. This is the modern-AVR idiom and it's *better* than the classic SBI/CBI approach for exactly your case: the affected pin is selected by the data you write, not by the opcode.
@@ -59,9 +62,9 @@ So the full path for "set the pin in this task's PIN field high" becomes:
 ```asm
         ldd     r24, Y+PIN              ; r24 = pin number (2, 3, or 4)
         rcall   bitmask                 ; r24 = (1 << pin)
-        sts     PORTA + 0x05, r24       ; PORTA.OUTSET — turn it on
+        sts     PORTA_SET, r24       ; PORTA.OUTSET — turn it on
 ```
 
-and for low, the same but `PORTA + 0x06` (OUTCLR).
+and for low, the same but `PORTA_CLR` (OUTCLR).
 
-Use the `io.h` symbols rather than literal offsets so it reads cleanly — with `#include <avr/io.h>` you can write `_SFR_MEM_ADDR(PORTA_OUTSET)` and `_SFR_MEM_ADDR(PORTA_OUTCLR)`, or just `lds`/`sts` against `PORTA_OUTSET` if you let the assembler resolve the struct. Let me show how this folds into your `update()` so `digitalWrite` is replaced by direct OUTSET/OUTCLR writes — want me to rewrite that section of `multitask_dd32.S`, or keep `digitalWrite` as the external call and just hand it the right convention?
+Use the `io.h` symbols rather than literal offsets so it reads cleanly — with `#include <avr/io.h>` you can write `_SFR_MEM_ADDR(PORTA_OUTSET)` and `_SFR_MEM_ADDR(PORTA_OUTCLR)`, or just `lds`/`sts` against `PORTA_OUTSET` if you let the assembler resolve the struct.

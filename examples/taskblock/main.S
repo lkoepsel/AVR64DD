@@ -1,19 +1,16 @@
 ;==============================================================================
-;  multitask_dd32.S
+;  taskblock.S
 ;------------------------------------------------------------------------------
 ;  Assembly version of the "one-line kernel" cooperative multitasker.
-;  Port of main.c (Adafruit "Classy" multitasking, C-struct form).
 ;
-;  An array of MAX_FLASHERS task blocks each drive a pin on/off on its own
+;  An array of MAX_TASKS task blocks drive a pin on/off on its own
 ;  schedule. The main loop walks the array calling update() on each task;
-;  update() compares (now - elapsed) against the on/off threshold and toggles
+;  update() compares (now - elapsed time) against the on/off threshold and toggles
 ;  the pin when the interval expires.
 ;
-;  Task block mirrors this C struct, but with 16-bit timing fields
-;  (C used uint32_t; 16-bit ms gives ~65 s range, ample for a blinker and
-;   keeps the arithmetic to single ADD/SUB/CP pairs):
+;  Task block mirrors this C struct, but with 16-bit timing fields:
 ;
-;      struct flasher {
+;      struct TASK {
 ;          uint8_t  pin;      // output pin number
 ;          uint8_t  state;    // HIGH or LOW
 ;          uint16_t on;       // time on   (was uint32_t)
@@ -23,47 +20,42 @@
 ;
 ;  External dependencies (declared .extern, called per AVR ABI):
 ;    ticks         -> returns elapsed tick count (ms) in r24:r25
-;    init_sysclock_2
-;    pinMode       (pin in r24, dir in r22)
-;    digitalWrite  (pin in r24, level in r22)
+;    init_sysclock_1k -> initializes a 1ms clock @4MHz
 ;
-;  Target : AVR64DD32  (Curiosity Nano)
-;  Build  : avr-gcc -nostartfiles -mmcu=avr64dd32 -o multitask.elf \
-;             multitask_dd32.S ticks.S sysclock.S pinMode.S digitalWrite.S
-;  Debug  : avr-gdb  (Bloom GDB RSP server @ 127.0.0.1:1442)
 ;==============================================================================
 
 #include <avr/io.h>
+#include "clocks.S"
 #include "io.S"
 #include "sysclock.S"
 
 ;------------------------------------------------------------------------------
 ;  Constants
 ;------------------------------------------------------------------------------
-        .equ    MAX_FLASHERS, 3
+        .equ    MAX_TASKS, 3
         .equ    DEFAULT_ON,   100
         .equ    DEFAULT_OFF,  100
 
         .equ    LOW,          0
         .equ    HIGH,         1
-        .equ    OUTPUT,       1               ; match pinMode() convention
+        .equ    OUTPUT,       1              
 
 ;------------------------------------------------------------------------------
 ;  Task block field offsets (assembly-time constants; zero storage)
 ;------------------------------------------------------------------------------
-        .equ    PIN,      0                   ; 1 byte  output pin number
-        .equ    STATE,    1                   ; 1 byte  HIGH / LOW
-        .equ    ON_TIME,  2                   ; 2 bytes time on   (LE word)
-        .equ    OFF_TIME, 4                   ; 2 bytes time off  (LE word)
-        .equ    ELAPSED,  6                   ; 2 bytes last-toggle timestamp
-        .equ    SIZE,     8                   ; bytes per task (no padding here)
+        .equ    PIN,      0     ; 1 byte  output pin number
+        .equ    STATE,    1     ; 1 byte  HIGH / LOW
+        .equ    ON_TIME,  2     ; 2 bytes time on   (LE word)
+        .equ    OFF_TIME, 4     ; 2 bytes time off  (LE word)
+        .equ    ELAPSED,  6     ; 2 bytes last-toggle timestamp
+        .equ    SIZE,     8     ; bytes per task (no padding here)
 
 ;==============================================================================
 ;  Registers and Values
 ;------------------------------------------------------------------------------
 ;  Globals / call-saved usage:
 ;    Y (r28:29) : per-task base pointer inside update()  (call-saved)
-;    r17        : loop counter (flasher index) in main    (call-saved)
+;    r17        : loop counter (TASK index) in main    (call-saved)
 ;
 ;  update() scratch (caller-saved r18..r27, r30..r31):
 ;    r24:r25  : now = ticks()  ; also pin arg / field temporaries
@@ -94,7 +86,7 @@ __vectors:
 ;==============================================================================
 ;  SECTION 2 : Data
 ;------------------------------------------------------------------------------
-;  flashers[MAX_FLASHERS] : array of task blocks, accessed as flashers + id*SIZE.
+;  TASKS[MAX_TASKS] : array of task blocks, accessed as TASKS + id*SIZE.
 ;  Initialized here directly (the C init() runs at startup; doing it as a Flash
 ;  image + copy means each task is live the moment .data is copied to SRAM).
 ;
@@ -106,8 +98,8 @@ __vectors:
 ;==============================================================================
 
         .section .data
-        .global  flashers
-flashers:
+        .global  TASKS
+TASKS:
         ; --- task 0 ---
         .byte   2                       ; PIN
         .byte   LOW                     ; STATE
@@ -127,9 +119,9 @@ flashers:
         .word   DEFAULT_OFF << 2        ; 400
         .word   0
 
-        ; Guard: array must be exactly MAX_FLASHERS * SIZE bytes.
-        .if     (. - flashers) != (MAX_FLASHERS * SIZE)
-        .error  "flashers array size mismatch"
+        ; Guard: array must be exactly MAX_TASKS * SIZE bytes.
+        .if     (. - TASKS) != (MAX_TASKS * SIZE)
+        .error  "TASKS array size mismatch"
         .endif
 
         .equ    PA_OUT, 0b00011100        ; PA2-4 are output pins 0x1C
@@ -149,7 +141,7 @@ _start:
 
 ;------------------------------------------------------------------------------
 ;  copy_data : Flash (LMA) -> SRAM (VMA)  (hand-rolled __do_copy_data)
-;    Copies the initialized flashers[] image into SRAM so the tasks are live.
+;    Copies the initialized TASKS[] image into SRAM so the tasks are live.
 ;------------------------------------------------------------------------------
 copy_data:
         ldi     r26, lo8(__data_start)        ; X -> SRAM dest
@@ -170,30 +162,37 @@ copy_done:
 ;  main
 ;------------------------------------------------------------------------------
 main:
+        rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
         ; set pins to output
         ldi     temp_16, PA_OUT
-        out     VPA_DIR, temp_16                ; PA2-4 outputs
+        out     VPA_DIR, temp_16        ; set PA2-4 to outputs
 
-        rcall   init_sysclock_1k               ; start the millisecond tick
+        rcall   init_sysclock_1k        ; start the millisecond/6 tick
 
-        ;----- Scheduler: forever, update each task ------------------------
-        ; while (1) for (i = 0; i < MAX_FLASHERS; ++i) update(i);
+        ;----- One line scheduler - update each task ------------------------
+        ; while (1) 
+        ;{
+        ;       for (i = 0; i < MAX_TASKS; ++i) 
+        ;       {
+        ;              update(i);
+        ;       }
+        ;}
 sched_loop:
-        ldi     r17, 0                        ; flasher index
+        ldi     r17, 0                        ; TASK index
 upd_next:
-        mov     r24, r17                      ; arg: flasherID
+        mov     r24, r17                      ; arg: TASKID
         push    r17
         rcall   update
         pop     r17
         inc     r17
-        cpi     r17, MAX_FLASHERS
+        cpi     r17, MAX_TASKS
         brlo    upd_next
         rjmp    sched_loop
 
 ;------------------------------------------------------------------------------
-;  update(uint8_t flasherID)   flasherID in r24
+;  update(uint8_t TASKID)   TASKID in r24
 ;------------------------------------------------------------------------------
-;  Computes Y = flashers + flasherID*SIZE, then replicates the C logic:
+;  Computes Y = TASKS + TASKID*SIZE, then replicates the C logic:
 ;
 ;    now = ticks();
 ;    if (state == HIGH && (now - elapsed) >= on)  { state=LOW;  elapsed=now;
@@ -209,24 +208,24 @@ update:
         push    r29
         push    r17
 
-        ;----- Y = flashers + flasherID * SIZE -----------------------------
+        ;----- Y = TASKS + TASKID * SIZE -----------------------------
         ; SIZE == 8, so index*8 = index << 3.
-        mov     r30, r24                      ; r30 = flasherID
+        mov     r30, r24                      ; r30 = TASKID
         ldi     r31, 0
         lsl     r30                           ; *2
         rol     r31
         lsl     r30                           ; *4
         rol     r31
         lsl     r30                           ; *8
-        rol     r31                           ; r31:r30 = flasherID*SIZE
-        ldi     r28, lo8(flashers)
-        ldi     r29, hi8(flashers)
-        add     r28, r30                      ; Y = flashers + offset
+        rol     r31                           ; r31:r30 = TASKID*SIZE
+        ldi     r28, lo8(TASKS)
+        ldi     r29, hi8(TASKS)
+        add     r28, r30                      ; Y = TASKS + offset
         adc     r29, r31
 
         ;----- now = ticks()  -> r24:r25 -----------------------------------
         rcall   ticks                         ; r24:r25 = now
-        ; keep now in r24:r25 throughout
+        ; keep result in r24:r25 throughout
 
         ;----- diff = now - elapsed  -> r20:r21 ----------------------------
         ldd     r20, Y+ELAPSED                ; elapsed low
@@ -256,7 +255,7 @@ update:
         std     Y+ELAPSED+1, r25        ; elapsed = now (high)
         ldd     r24, Y+PIN              ; arg1: pin
 
-        rcall   bitmask                 ; r24 = (1 << pin)
+        call    bitmask                 ; r24 = (1 << pin)
         sts     PORTA_CLR, r24          ; PORTA.OUTSET — turn it off
 
         rjmp    upd_done
@@ -274,7 +273,7 @@ state_is_low:
         std     Y+ELAPSED,   r24        ; elapsed = now (low)
         std     Y+ELAPSED+1, r25        ; elapsed = now (high)
         ldd     r24, Y+PIN              ; arg1: pin
-        rcall   bitmask                 ; r24 = (1 << pin)
+        call    bitmask                 ; r24 = (1 << pin)
         sts     PORTA_SET, r24          ; PORTA.OUTSET — turn it on
 
 upd_done:
@@ -284,5 +283,5 @@ upd_done:
         ret
 
 ;==============================================================================
-;  End of multitask_dd32.S
+;  End of taskblock.S
 ;==============================================================================
