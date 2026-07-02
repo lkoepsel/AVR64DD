@@ -162,7 +162,7 @@ copy_done:
 ;  main
 ;------------------------------------------------------------------------------
 main:
-        rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
+        ; rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
         ; set pins to output
         ldi     temp_16, PA_OUT
         out     VPA_DIR, temp_16        ; set PA2-4 to outputs
