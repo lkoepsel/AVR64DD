@@ -13,6 +13,11 @@
 #include <avr/io.h>
 #include "registers.S"
 
+; Emit into .text explicitly: this file is #included after others whose
+; trailing `.section .data/.bss` would otherwise leave bitmask in RAM, so a
+; `call bitmask` jumps into data space. (Matches sysclock.S's own .text.)
+.section .text
+
 .type   bitmask, @function
 ;------------------------------------------------------------------------------
 ;  bitmask : r24 = pin number (0..7)  ->  r24 = (1 << pin)

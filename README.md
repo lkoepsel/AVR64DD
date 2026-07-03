@@ -25,6 +25,85 @@ TCA0's six waveform outputs (WO0–WO5) map to pins 0–5 of whichever port
 Source: board pinout (`documentation/AVR64DD32_Curiosity_Nano.png`) and the
 Curiosity Nano User Guide §4.2.4 (24 MHz crystal).
 
+### Assembly `#include` gotcha: always open a Library file with `.section .text`
+
+The `main.S` examples pull in the shared routines with the C preprocessor,
+e.g.:
+
+```asm
+#include "clocks.S"
+#include "io.S"
+#include "sysclock.S"
+```
+
+Because these are textual `#include`s, **each file is assembled in whatever
+section the *previous* file left active** — there is no fresh compilation unit
+per file. Several Library files end with `.section .data` / `.section .bss`
+(a habit carried over from standalone assembly). So if the *next* included file
+starts defining code **without first selecting `.section .text`**, its
+instructions are emitted into `.bss` (or `.data`) and get a **RAM address**.
+
+Real bug this caused (`examples/taskblock`): `io.S` defined `bitmask` with no
+`.section .text`. Once `clocks.S` (which ends in `.section .bss`) was included
+*ahead* of it, `bitmask` landed in `.bss` at `0x6018`. `call bitmask` then
+jumped into SRAM, executed garbage, and the PC drifted to `0x0000` — which
+looks **exactly like a RESET** (no interrupt is involved, so an unused-vector
+trap never fires). A tell-tale symptom was being forced to change
+`rcall bitmask` → `call bitmask`, because the routine had moved thousands of
+bytes away, out of `rcall` range.
+
+Quick check after building:
+
+```sh
+avr-nm main.elf | grep <routine>   # must be 't' or 'T' (text), never 'b'/'d'
+```
+
+**Rule: every Library `.S` that emits code must begin with `.section .text`.**
+
+#### Skeleton for a new `Library/*.S` file
+
+```asm
+; ============================================================================
+;  <name>.S  —  <one-line description of what this module provides>
+;  Target : AVR64DD32 (Curiosity Nano)
+;
+;  ABI (AVR-GCC calling convention — match exactly if called from C):
+;    input : <byte in r24 / word in r25:r24 / flash ptr in Z=r31:r30>
+;    output: <byte in r24 / word in r25:r24>
+;    clobbers: <list any call-used regs you touch beyond the return>
+;  NOTE: r8:r9 are reserved repo-wide (sysclock tick counter) — never clobber.
+; ============================================================================
+
+; Included so the file also assembles standalone; header guard makes the
+; registers.S include harmless when it is pulled in more than once.
+#include <avr/io.h>
+#include "registers.S"
+
+; --- CODE ------------------------------------------------------------------
+; MUST come first: without this, code inherits a prior include's .data/.bss
+; section and ends up at a RAM address (see the gotcha above).
+.section .text
+
+.global <routine>              ; drop .global if only used within this file
+.type   <routine>, @function
+<routine>:
+        ; ... body ...
+        ret
+
+; --- DATA (optional) -------------------------------------------------------
+; Only if the module needs initialized constants in SRAM.
+.section .data
+
+; --- BSS (optional) --------------------------------------------------------
+; Only if the module needs zero-initialized SRAM variables.
+.section .bss
+```
+
+Note the trailing `.section .data` / `.section .bss` are exactly what "poison"
+the next include — they are fine here **because every file re-selects
+`.section .text` at its own top.** Keep that invariant and include order can
+never move your code into RAM.
+
 ## Introduction
 This repository provides example programs in [*C* (ANSI C99, AVR-LibC)](https://github.com/avrdudes/avr-libc) and [*AVR assembly language*](https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf) for the Microchip **AVR64DD32**, targeting the [*AVR64DD32 Curiosity Nano*](./documentation/AVR64DD32CNANO-Prel-HW-UserGuide-DS50003323.pdf) evaluation board. The same examples apply to the closely related **AVR64DD28** with a one-line change in *env.make*. To use this framework you need a recent *GNU AVR* toolchain (*avr-gcc* / *avr-libc*) new enough to know the AVR-Dx parts; current packages on *Linux*, *macOS*, and *Windows* include them, so no separate device pack is required.
 

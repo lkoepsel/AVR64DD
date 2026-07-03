@@ -13,6 +13,8 @@
 #include <avr/io.h>
 #include "registers.S"
 
+.section .text               ; ensure code lands in flash, not a leftover section
+
 .global  set_1M
 set_1M:                      ; set clock to 1Mhz
 ; CLKCTRL_FRQSEL_1M_gc          = (CLKCTRL_FRQSEL_1M_gv << CLKCTRL_FRQSEL_gp)          

@@ -73,14 +73,14 @@
 __vectors:
 .section .vectors, "ax", @progbits
     jmp     _start              ; 0x000  vector 0  RESET
-    jmp     0                   ; 0x004  vector 1  NMI
-    jmp     0                   ; 0x008  vector 2  BOD_VLM
-    jmp     0                   ; 0x00C  vector 3  CLKCTRL
-    jmp     0                   ; 0x010  vector 4  MVIO_MVIO
-    jmp     0                   ; 0x014  vector 5  RTC_CNT
-    jmp     0                   ; 0x018  vector 6  RTC_PIT
-    jmp     0                   ; 0x01C  vector 7  CCL_CCL
-    jmp     0                   ; 0x020  vector 8  PORTA_PORT
+    jmp     bad_interrupt       ; 0x004  vector 1  NMI
+    jmp     bad_interrupt       ; 0x008  vector 2  BOD_VLM
+    jmp     bad_interrupt       ; 0x00C  vector 3  CLKCTRL
+    jmp     bad_interrupt       ; 0x010  vector 4  MVIO_MVIO
+    jmp     bad_interrupt       ; 0x014  vector 5  RTC_CNT
+    jmp     bad_interrupt       ; 0x018  vector 6  RTC_PIT
+    jmp     bad_interrupt       ; 0x01C  vector 7  CCL_CCL
+    jmp     bad_interrupt       ; 0x020  vector 8  PORTA_PORT
     jmp     TCA0_OVF_handler    ; 0x024  vector 9  TCA0_OVF
 
 ;==============================================================================
@@ -133,11 +133,47 @@ TASKS:
         .global  _start
         .global  main
         .global  update
+        .global  bad_interrupt
+
+;------------------------------------------------------------------------------
+;  bad_interrupt : trap for every unused / unexpected interrupt vector.
+;    All vectors except RESET(0) and TCA0_OVF(9) jump here instead of to
+;    _start, so a stray interrupt parks the CPU here rather than masquerading
+;    as a RESET. It blinks the onboard LED (PF5 / LED0) at ~1 Hz so the trap is
+;    obvious with no debugger attached; the steady ~1 Hz flash cannot be
+;    confused with the PA2/3/4 task pins or a normal reset.
+;      * LED blinking / breakpoint hits -> an unused vector really is firing;
+;        read the top of stack (pushed return addr) to see which one.
+;      * LED dark / breakpoint never hits -> the "reset" is NOT a stray IRQ.
+;    No reti / return: we want it to stay here, not resume.
+;    Clobbers r18/r19 (delay_16) and r20 — fine, this never returns.
+;------------------------------------------------------------------------------
+bad_interrupt:
+        sbi     VPF_DIR, LED            ; PF5 (LED0) as output
+bad_spin:
+        sbi     VPF_IN, LED             ; toggle PF5 (VPORT write-1-to-toggle)
+        ldi     temp_20, 8              ; ~8 x 65 ms => ~0.5 s per toggle (~1 Hz)
+bad_wait:
+        delay_16 0                      ; 0 => 65536 ticks (~65 ms @ 4 MHz)
+        dec     temp_20
+        brne    bad_wait
+        rjmp    bad_spin
 
 ;------------------------------------------------------------------------------
 ;  _start : entry from RESET vector
 ;------------------------------------------------------------------------------
 _start:
+;------------------------------------------------------------------------------
+;  init stack : freestanding (-nostartfiles) means no CRT sets SP for us.
+;    SP does NOT come up at RAMEND on its own here, so point it at RAMEND
+;    (0x7FFF, top of the 8 KB SRAM) before the first rcall/push. Without this
+;    the stack lives in unimplemented data space, pushes are lost, and the
+;    first ret reads 0x0000 -> jumps to _start, looking exactly like a RESET.
+;------------------------------------------------------------------------------
+        ldi     temp_16, hi8(RAMEND)
+        out     STACK_HIGH, temp_16     ; SPH
+        ldi     temp_16, lo8(RAMEND)
+        out     STACK_LOW, temp_16      ; SPL
 
 ;------------------------------------------------------------------------------
 ;  copy_data : Flash (LMA) -> SRAM (VMA)  (hand-rolled __do_copy_data)
