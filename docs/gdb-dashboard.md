@@ -97,6 +97,23 @@ plain `gdb` anywhere else is untouched. No per-example `.gdbinit` files.
 
 `~/.gdbinit.d/` is auto-sourced by gdb-dashboard: `.py` files load as Python
 modules, everything else as GDB scripts.
+3. Create a *bloom.yaml* file specifically for the *AVR64DD32 Curiosity Nano*:
+
+```yaml
+environments:
+  default:
+    shutdown_post_debug_session: false
+    tool:
+      name: "curiosity_nano"
+    target:
+      name: "avr64dd32"
+      physical_interface: "updi"
+      hardware_breakpoints: true
+    server:
+      name: "avr_gdb_rsp"
+      ip_address: "127.0.0.1"
+      port: 1442
+```
 
 ## Use
 
@@ -122,7 +139,7 @@ cd AVR64DD_examples/asm_blink && avr-gdb
 
 ## Adapting to another program
 
-1. Drop an **`avr_dashboard.py`** next to the program's `main.S` choosing the
+1. Copy **`avr_dashboard.py`** next to the program's `main.S` choosing the
    registers to show — it's read automatically when you launch `avr-gdb` in that
    directory, and is tracked in the repo per example. For example
    (`AVR64DD_examples/asm_blink/avr_dashboard.py`):

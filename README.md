@@ -3,178 +3,14 @@
 Notes as to developing C and assembly code for the Microchip AVR64DD. 
 ![AVR64DD32_Curiosity_Nano](./AVR64DD32_Curiosity_Nano.pdf)
 
-## AVR64DD32 Curiosity Nano — Quick Notes
-
-A running scratchpad of board/chip gotchas worth remembering.
-
-### TCA0 (Timer A) PWM output pins
-TCA0's six waveform outputs (WO0–WO5) map to pins 0–5 of whichever port
-`PORTMUX.TCAROUTEA` selects.
-
-- **Default route is PORTA**, so WO0→PA0, WO1→PA1, WO2→PA2. But on the Nano,
-  **PA0/PA1 carry the 24 MHz crystal and are disconnected from the edge
-  connector by default** (to use them as GPIO: cut straps J214/J215 to free the
-  crystal, then bridge solder points J207/J208). So **PA2 is the only directly
-  usable default channel** — no board mods. (See `AVR64DD_examples/asm_blink_pwm`.)
-- **Route TCA0 to PORTD** (`PORTMUX.TCAROUTEA`) to get **WO1/WO2/WO3 on
-  PD1/PD2/PD3**, which are broken out on the header with no modifications —
-  handy when you want multiple PWM channels.
-- **LED0 is on PF5 = WO5**, which is reachable only via TCA0 **Split mode** +
-  PORTMUX routing to PORTF (more involved than the default single-channel path).
-
-Source: board pinout (`documentation/AVR64DD32_Curiosity_Nano.png`) and the
-Curiosity Nano User Guide §4.2.4 (24 MHz crystal).
-
-### Assembly `#include` gotcha: always open a Library file with `.section .text`
-
-The `main.S` examples pull in the shared routines with the C preprocessor,
-e.g.:
-
-```asm
-#include "clocks.S"
-#include "io.S"
-#include "sysclock.S"
-```
-
-Because these are textual `#include`s, **each file is assembled in whatever
-section the *previous* file left active** — there is no fresh compilation unit
-per file. Several Library files end with `.section .data` / `.section .bss`
-(a habit carried over from standalone assembly). So if the *next* included file
-starts defining code **without first selecting `.section .text`**, its
-instructions are emitted into `.bss` (or `.data`) and get a **RAM address**.
-
-Real bug this caused (`examples/taskblock`): `io.S` defined `bitmask` with no
-`.section .text`. Once `clocks.S` (which ends in `.section .bss`) was included
-*ahead* of it, `bitmask` landed in `.bss` at `0x6018`. `call bitmask` then
-jumped into SRAM, executed garbage, and the PC drifted to `0x0000` — which
-looks **exactly like a RESET** (no interrupt is involved, so an unused-vector
-trap never fires). A tell-tale symptom was being forced to change
-`rcall bitmask` → `call bitmask`, because the routine had moved thousands of
-bytes away, out of `rcall` range.
-
-Quick check after building:
-
-```sh
-avr-nm main.elf | grep <routine>   # must be 't' or 'T' (text), never 'b'/'d'
-```
-
-**Rule: every Library `.S` that emits code must begin with `.section .text`.**
-
-#### Skeleton for a new `Library/*.S` file
-
-```asm
-; ============================================================================
-;  <name>.S  —  <one-line description of what this module provides>
-;  Target : AVR64DD32 (Curiosity Nano)
-;
-;  ABI (AVR-GCC calling convention — match exactly if called from C):
-;    input : <byte in r24 / word in r25:r24 / flash ptr in Z=r31:r30>
-;    output: <byte in r24 / word in r25:r24>
-;    clobbers: <list any call-used regs you touch beyond the return>
-;  NOTE: r8:r9 are reserved repo-wide (sysclock tick counter) — never clobber.
-; ============================================================================
-
-; Included so the file also assembles standalone; header guard makes the
-; registers.S include harmless when it is pulled in more than once.
-#include <avr/io.h>
-#include "registers.S"
-
-; --- CODE ------------------------------------------------------------------
-; MUST come first: without this, code inherits a prior include's .data/.bss
-; section and ends up at a RAM address (see the gotcha above).
-.section .text
-
-.global <routine>              ; drop .global if only used within this file
-.type   <routine>, @function
-<routine>:
-        ; ... body ...
-        ret
-
-; --- DATA (optional) -------------------------------------------------------
-; Only if the module needs initialized constants in SRAM.
-.section .data
-
-; --- BSS (optional) --------------------------------------------------------
-; Only if the module needs zero-initialized SRAM variables.
-.section .bss
-```
-
-Note the trailing `.section .data` / `.section .bss` are exactly what "poison"
-the next include — they are fine here **because every file re-selects
-`.section .text` at its own top.** Keep that invariant and include order can
-never move your code into RAM.
-
 ## Introduction
-This repository provides example programs in [*C* (ANSI C99, AVR-LibC)](https://github.com/avrdudes/avr-libc) and [*AVR assembly language*](https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf) for the Microchip **AVR64DD32**, targeting the [*AVR64DD32 Curiosity Nano*](./documentation/AVR64DD32CNANO-Prel-HW-UserGuide-DS50003323.pdf) evaluation board. The same examples apply to the closely related **AVR64DD28** with a one-line change in *env.make*. To use this framework you need a recent *GNU AVR* toolchain (*avr-gcc* / *avr-libc*) new enough to know the AVR-Dx parts; current packages on *Linux*, *macOS*, and *Windows* include them, so no separate device pack is required.
+This repository provides example programs in [*AVR assembly language*](https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf) for the Microchip **AVR64DD32**, targeting the [*AVR64DD32 Curiosity Nano*](./documentation/AVR64DD32CNANO-Prel-HW-UserGuide-DS50003323.pdf) evaluation board. The same examples apply to the closely related **AVR64DD28** with a one-line change in *env.make*. To use this framework you need a recent *GNU AVR* toolchain (*avr-gcc* / *avr-libc*) new enough to know the AVR-Dx parts; current packages on *Linux*, *macOS*, and *Windows* include them, so no separate device pack is required.
 
-Example programs live under [**examples**](./AVR64DD_examples). Each subfolder is a *C*, *assembly*, or *mixed C/assembly* example. *C* and *mixed* examples use `main.c` as the principal program; *assembly* examples are named with an `asm_` prefix (e.g. `asm_blink`) and use `main.S`. A single root `Makefile` builds all three kinds — it auto-detects whether to link freestanding (*assembly*, no C runtime) or with the *C runtime*. The standard *make* targets (`make`, `make flash`, `make size`, …) work in every example folder.
+Example programs live under [**examples**](./AVR64DD_examples). Each subfolder is an *assembly language* example, with a *main.S* file. A `Makefile` builds an executable with standard *make* targets (`make`, `make flash`, `make size`, …) work in every example folder.
 
 The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = pkobn_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
 For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end.
-
-## Debugging the AVR64DD32 with Bloom and avr-gdb
-
-*Bloom* provides the GDB server for the *AVR64DD32 Curiosity Nano* over the
-Nano's on-board *nEDBG* debugger (*UPDI*) — no external programmer. The repo's
-**`bloom.yaml`** configures it and can open **Bloom Insight** (a Qt GUI) for
-graphical register / peripheral / memory / GPIO inspection on a desktop. For
-the actual debugging session, drive *avr-gdb*; headless setups use
-[gdb-dashboard](./docs/gdb-dashboard.md) instead of Insight.
-
-### What `bloom.yaml` does
-
-```yaml
-environments:
-  default:
-    shutdown_post_debug_session: false
-    tool:
-      name: "curiosity_nano"
-    target:
-      name: "avr64dd32"
-      physical_interface: "updi"
-      hardware_breakpoints: true
-    server:
-      name: "avr_gdb_rsp"
-      ip_address: "127.0.0.1"
-      port: 1442
-```
-
-- **`tool` / `target` / `physical_interface: updi`** — drive the on-board nEDBG
-  over UPDI; no external programmer or bootloader.
-- **`hardware_breakpoints: true`** — use the AVR64DD32's hardware breakpoints, so
-  breakpoints work in Flash and assembly (e.g. `break *0` at the reset vector).
-- **`server: avr_gdb_rsp` on `127.0.0.1:1442`** — the GDB RSP server that
-  *avr-gdb* connects to.
-- **`insight: activate_on_startup: true`** — **Bloom Insight**, the graphical
-  front-end, opens automatically with the session, giving live register /
-  peripheral / memory / GPIO views (desktop only — Insight is a Qt GUI and
-  won't display over SSH; use gdb-dashboard there).
-- **`shutdown_post_debug_session: false`** — Bloom keeps running after you quit
-  *avr-gdb* (it returns to waiting for a connection), so you can re-launch
-  *avr-gdb* without restarting Bloom. Press *Ctrl-C* in the Bloom terminal when
-  you are truly done.
-
-> **Headless / SSH (e.g. a Raspberry Pi dev host)?** Insight is a Qt GUI and
-> can't display over SSH. Use [**gdb-dashboard**](./docs/gdb-dashboard.md)
-> instead — a pure-terminal source / assembly / curated-register view for
-> *avr-gdb*. The ready-made config is in [`docs/dashboard/`](./docs/dashboard).
-
-### Debugging session
-
-Start Bloom in an example directory, then launch *avr-gdb* — the
-[gdb-dashboard setup](./docs/gdb-dashboard.md) auto-connects and flashes,
-leaving you halted at the reset vector:
-
-```bash
-# terminal 1
-cd AVR64DD_examples/asm_blink && bloom
-# terminal 2
-cd AVR64DD_examples/asm_blink && avr-gdb
-```
-
-See [docs/gdb-dashboard.md](./docs/gdb-dashboard.md) for the full headless
-terminal workflow (curated registers, centered disassembly, `mon rr`/`mon wr`).
 
 ## Local Documentation (in the repo folder [documentation](./documentation))
 
@@ -265,85 +101,51 @@ avrdude -p 64dd32 -P usb -c pkobn_updi -t
 * **size**: Shows the size of program and memory
 * **flash**: Uploads program to *AVR64DD32*
 
+## Using Bloom and avr-gdb
 
-## Helpful Files
+Developing code in assembly language, requires strong debugging tools. As mentioned prior, *Bloom* and *avr-gdb* are the great tools to do so. There are **two methods** to using them; on a desktop, use the *Bloom GUI, Insight* or headless, using *gdb-dashboard*. I've found the latter to be my preferred method, as it allows me to customize the debugging window specific to the program I am debugging.
 
-### tasks.json for VS Code
+[Bloom AVR64DD32 Details](https://bloom.oscillate.io/docs/target/avr64dd32)
 
-```json
-{
-    "version": "2.0.0",
-    "tasks": [
-        {
-            "label": "make",
-            "detail": "Run make",
-            "type": "shell",
-            "command": "/usr/bin/make ${input:makeTarget}",
-            "options": {
-                "cwd": "${fileDirname}"
-            },
-            "presentation": {
-                "reveal": "silent",
-                "panel": "shared",
-                "showReuseMessage": false,
-                "clear": true
+### 1. Debugging the AVR64DD32 with *Bloom GUI Insight* and *avr-gdb*
 
-              },        
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
-        }
-    ],
-    "inputs": [
-        {
-            "type": "pickString",
-            "id": "makeTarget",
-            "description": "Select a make target",
-            "options": [
-                {   
-                    "value": "flash",
-                    "label": "compile and upload code (upload)"
-                },
-                {   
-                    "value": "compile",
-                    "label": "only compile code (verify)"
-                },
-                {   
-                    "value": "clean",
-                    "label": "remove non-source files"
-                },
-                {   
-                    "value": "complete",
-                    "label": "complete re-compile without upload"
-                },
-                {   
-                    "value": "verbose",
-                    "label": "verbose upload to debug serial connection"
-                },
-                {   
-                    "value": "env",
-                    "label": "print env variables being used"
-                },
-                {   
-                    "value": "size",
-                    "label": "print code sizes"
-                },
-                {   
-                    "value": "help",
-                    "label": "print make commands"
-                }
-            ],
-            "default": " flash"
-        }
-    ]
-}
+*Bloom* provides the GDB server for the *AVR64DD32 Curiosity Nano* over the Nano's on-board *nEDBG* debugger (*UPDI*) — no external programmer. The repo's **`bloom.yaml`** configures it and can open **Bloom Insight** (a Qt GUI) for graphical register / peripheral / memory / GPIO inspection on a desktop. In this instance, *avr-gdb* uses **TUI** for a nice windowed approach to debugging. 
+
+#### `bloom.yaml` at *AVR64DD32* root
+
+```yaml
+environments:
+  default:
+    shutdown_post_debug_session: false
+    tool:
+      name: "curiosity_nano"
+    target:
+      name: "avr64dd32"
+      physical_interface: "updi"
+      hardware_breakpoints: true
+    server:
+      name: "avr_gdb_rsp"
+      ip_address: "127.0.0.1"
+      port: 1442
 ```
 
-## Using Bloom and avr-gdb
-[Bloom and AVR64DD32](https://bloom.oscillate.io/docs/target/avr64dd32)
+- **`tool` / `target` / `physical_interface: updi`** — drive the on-board nEDBG
+  over UPDI; no external programmer or bootloader.
+- **`hardware_breakpoints: true`** — use the AVR64DD32's hardware breakpoints, so
+  breakpoints work in Flash and assembly (e.g. `break *0` at the reset vector).
+- **`server: avr_gdb_rsp` on `127.0.0.1:1442`** — the GDB RSP server that
+  *avr-gdb* connects to.
+- **`insight: activate_on_startup: true`** — **Bloom Insight**, the graphical
+  front-end, opens automatically with the session, giving live register /
+  peripheral / memory / GPIO views (desktop only — Insight is a Qt GUI and
+  won't display over SSH; use gdb-dashboard there).
+- **`shutdown_post_debug_session: false`** — Bloom keeps running after you quit
+  *avr-gdb* (it returns to waiting for a connection), so you can re-launch
+  *avr-gdb* without restarting Bloom. Press *Ctrl-C* in the Bloom terminal when
+  you are truly done.
 
-### .gdbinit - place in home folder
+
+#### `.gdbinit` - place in home folder (~/)
 
 ```
 set confirm off
@@ -379,44 +181,43 @@ tui enable
 end
 ```
 
-## bloom.yaml - place in home folder
-```yaml
-environments:
-  default:
-    shutdown_post_debug_session: true
-    tool:
-      name: "curiosity_nano"
-    target:
-      name: "avr64dd32"
-      physical_interface: "updi"
-      hardware_breakpoints: true
-    server:
-      name: "avr_gdb_rsp"
-      ip_address: "127.0.0.1"
-      port: 1442
-    insight:
-      activate_on_startup: true
-```
 
-### Steps
+#### Steps
 
 1. Copy *.gdbinit* in your home folder
 2. Copy *bloom.yaml* file in your project folder root
 3. Open two windows in your **CLI**
 1. In first window:
 ```bash
-cd ATtiny
-bloom snap_13a
+cd AVR64DD32
+bloom 
 # bloom will initialize then wait for gdb server
 ```
 2. In second window (remain in this window):
 ```
-cd ATtiny/examples/blink
+cd AVR64DD32/examples/blink
 make complete
 avr-gdb main.elf
 ```
 
-### Typical gdb commands
+### 2. Headless Debugging session with *avr-gdb* and *gdb-dashboard*
+
+For a headless debugging session, use *avr-gdb* along with *gdb-dashboard*; see [gdb-dashboard](./docs/gdb-dashboard.md) for detailed instructions to setup. 
+
+> **Note:** gdb-dashboard and gdb's built-in **TUI** are mutually exclusive —
+> enabling TUI (`tui enable` / `layout`) fights the dashboard for the screen and
+> requires manual `refresh`. **Stay in the dashboard for headless use, and don't use TUI**.
+
+Start Bloom in an example directory, then launch *avr-gdb* — the [gdb-dashboard setup](./docs/gdb-dashboard.md) auto-connects and flashes, leaving you halted at the reset vector:
+
+```bash
+# terminal 1
+cd AVR64DD_examples/asm_blink && bloom
+# terminal 2
+cd AVR64DD_examples/asm_blink && avr-gdb
+```
+
+## Typical gdb commands (*Once one of the two methods above, have been started*)
 
 Assuming you have setup ~/.gdbinit from above, once gdb has started, there will be two windows:
 1. Top window is your main.c or main.S listing
@@ -488,64 +289,121 @@ Writing value 0x90 (8-bit) to "OCR0A" register, at address 0x00000056, via `data
 Register written
 ```
 
-## avr-gdb commands
+### avr-gdb commands
 
-### Basic Control Commands
+### avr-gdb commands (Assembly Language)
+
+> Reference for debugging AVR `.S` assembly on the AVR64DD32 Curiosity Nano
+> (Bloom GDB server @ `127.0.0.1:1442`). In assembly there are no source
+> lines-by-statement, typed variables, or C stack frames, so the
+> line/variable/function commands are replaced by their instruction-,
+> address-, and memory-level equivalents. Build with `-g` so avr-gdb can
+> associate your `.S` labels and lines.
+
+#### Basic Control Commands
 - ```continue``` or ```c``` - Continue execution after a breakpoint
-- ```step``` or ```s``` - Execute one line of code, stepping into functions
-- ```next``` or ```n``` - Execute one line of code, stepping over functions
-- ```finish``` - Run until current function returns
+- ```stepi``` or ```si``` - Execute one machine instruction, stepping INTO calls  *(replaces ```step```)*
+- ```nexti``` or ```ni``` - Execute one machine instruction, stepping OVER ```rcall```/```call```  *(replaces ```next```)*
+- ```si 5``` / ```ni 5``` - Step 5 instructions at once
+- ```finish``` - Run until the current subroutine returns (```ret```/```reti```)
+- ```until *address``` - Run until a specific address (e.g. exit a loop without single-stepping)
 
-### Breakpoint Commands
-- ```break main``` or ```b main``` - Set breakpoint at function main
-- ```break 25``` - Set breakpoint at line 25 of current file
-- ```break file.c:30``` - Set breakpoint at line 30 of file.c
+#### Breakpoint Commands
+- ```break *main``` or ```b *main``` - Set breakpoint at label ```main``` (note the ```*``` - break on ADDRESS, not line)
+- ```break *0x0``` - Set breakpoint at the reset vector (address 0)
+- ```break *update``` - Break at a label in your ```.S``` file
+- ```break *update+6``` - Break at a byte offset into a label (land mid-routine)
+- ```tbreak *update``` - One-shot temporary breakpoint (auto-deletes after firing)
 - ```info breakpoints``` or ```i b``` - List all breakpoints
 - ```delete 1``` - Delete breakpoint number 1
 - ```disable 2``` - Temporarily disable breakpoint 2
 - ```enable 2``` - Re-enable breakpoint 2
 
-### Variable Inspection
-- ```print variable``` or ```p variable``` - Print value of variable
-- ```print/x variable``` - Print in hexadecimal format
-- ```print/t variable``` - Print in binary format
-- ```display variable``` - Automatically show variable value at each stop
+#### Register Inspection  *(replaces C variable inspection)*
+- ```info registers``` or ```i r``` - Display all registers (r0-r31, SREG, SP, PC)
+- ```print $r24``` or ```p $r24``` - Print a single register
+- ```print/x $r24``` - Print register in hexadecimal
+- ```print/t $r24``` - Print register in binary (handy for watching a ```(1 << pin)``` mask build)
+- ```print $pc``` / ```print $sp``` - Program counter / stack pointer
+- ```print/t $sreg``` - Show SREG flag bits (I-T-H-S-V-N-Z-C) - read after ```cp```/```cpc``` to reason about ```breq```/```brlo```
+- ```display/x $r24``` - Auto-show a register at each stop
 - ```undisplay 1``` - Remove automatic display number 1
-- ```info locals``` - Show all local variables
-- ```info registers``` - Display all register values
 
-### Watchpoint Commands
-- ```watch variable``` - Break when variable value changes
-- ```watch *0x20``` - Watch memory address 0x20
-- ```rwatch variable``` - Break on read access to variable
-- ```awatch variable``` - Break on any access (read or write)
+#### Memory Inspection  *(replaces typed-variable access)*
+- ```x/16xb &flashers``` - Examine 16 bytes in hex - dump a task block from SRAM
+- ```x/3xh &flashers+2``` - Examine 3 words (word fields read with correct byte order)
+- ```x/1xb &flashers+ELAPSED``` - Read a field by its ```.set``` offset symbol
+- ```x/8xb $sp``` - Inspect the stack (verify ```push```/```pop``` pairs)
+- ```x/5i $pc``` - Disassemble the next 5 instructions from the program counter
+- Note: SRAM symbols carry the ```0x800000``` ELF offset. ```&label``` handles
+  this automatically; raw numeric addresses do not (SRAM ```0x2800``` is
+  ```0x802800``` to gdb).
+
+#### Watchpoint Commands
+- ```watch *(char*)0x802800``` - Break when an SRAM byte changes (e.g. a task's ```state```)
+- ```watch *(char*)(&flashers+STATE)``` - Watch a field via its offset symbol
+- ```rwatch *(char*)0x802800``` - Break on READ access
+- ```awatch *(char*)0x802800``` - Break on ANY access (read or write)
 - ```info watchpoints``` - List all watchpoints
 
 ### Stack and Memory Commands
-- ```backtrace``` or ```bt``` - Show call stack
-- ```frame 2``` - Select stack frame 2
-- ```up``` - Move up one stack frame
-- ```down``` - Move down one stack frame
-- ```x/10xb 0x60``` - Examine 10 bytes in hex starting at 0x60
-- ```x/5i $pc``` - Display 5 instructions starting at program counter
+- ```x/2xb $sp``` - Read the return address / saved regs off the stack directly (more reliable than ```bt``` in bare-metal ```.S```)
+- ```backtrace``` or ```bt``` - Show call stack *(shallow/unreliable without ```.cfi``` directives - hand-rolled ```.S``` has no frame info)*
+- ```x/10xb 0x800060``` - Examine 10 bytes in hex starting at SRAM 0x60
+- ```x/5i $pc``` - Display 5 instructions starting at the program counter
 
 ### Program Flow
-- ```list``` or ```l``` - Show source code around current line
-- ```list 20,30``` - Show lines 20-30
-- ```disassemble``` - Show assembly of current function
+- ```disassemble``` or ```disas``` - Disassemble the current region
+- ```disas update``` - Disassemble a named routine
+- ```disas /r``` - Disassemble AND show raw opcode bytes
+- ```disas /s``` - Interleave ```.S``` source lines with disassembly (needs ```-g```) - closest thing to ```list```
+- ```x/10i $pc``` - Disassemble 10 instructions ahead
 - ```stepi``` or ```si``` - Execute one machine instruction
 - ```nexti``` or ```ni``` - Execute one instruction (skip calls)
 
+### Layout / TUI (visual stepping)
+- ```layout asm``` - Disassembly pane with a current-instruction marker  *(replaces ```layout src```)*
+- ```layout regs``` - Add a register pane above the code pane
+- ```tui reg general``` - Show general registers in the TUI reg window
+- ```Ctrl-x o``` - Move focus between TUI panes (so arrow keys scroll the right one)
+- ```tui disable``` - Leave TUI mode
+
 ### Miscellaneous
-- ```set var variable = 5``` - Change variable value to 5
-- ```info functions``` - List all functions
-- ```help command``` - Get help for specific command
+- ```set $r24 = 0x05``` - Change a register value live  *(replaces ```set var```)*
+- ```set {char}0x802800 = 0x01``` - Write a byte directly into SRAM
+- ```info all-registers``` - Registers including peripheral/IO where exposed
+- ```help command``` - Get help for a specific command
 - ```quit``` or ```q``` - Exit gdb
+
+---
+
+### C-to-assembly command map (quick reference)
+
+| C-oriented command      | Assembly equivalent            | Why it changes                                  |
+|-------------------------|--------------------------------|-------------------------------------------------|
+| ```step``` / ```s```    | ```stepi``` / ```si```         | No source statements; step by instruction       |
+| ```next``` / ```n```    | ```nexti``` / ```ni```         | Step over ```rcall```/```call``` at instr level |
+| ```break main```        | ```break *main```              | Break on address, not line/function             |
+| ```break 25```          | ```break *label``` / ```*addr```| No line-to-statement mapping                    |
+| ```print variable```    | ```print $r24``` / ```x/ …```  | No typed symbols; use registers/memory          |
+| ```info locals```       | ```info registers``` + ```x``` | No DWARF locals in hand-rolled ```.S```         |
+| ```watch variable```    | ```watch *(char*)&sym```       | Watch an address, not a typed name              |
+| ```list``` / ```l```    | ```disas /s``` / ```x/Ni $pc```| No source list; disassemble instead             |
+| ```set var x = 5```     | ```set $r24 = 5```             | Set a register, not a variable                  |
+| ```backtrace``` / ```bt```| ```x/2xb $sp``` (+ ```finish```)| No frame info without ```.cfi```               |
+
+### Commands that work UNCHANGED in assembly
+```continue```/```c```, ```finish```, ```info breakpoints```/```i b```,
+```delete```, ```disable```, ```enable```, ```info registers```/```i r```,
+```display```, ```undisplay```, ```info watchpoints```, ```x/…```,
+```disassemble```, ```stepi```/```si```, ```nexti```/```ni```,
+```help```, ```quit```/```q```.
 
 ## tio setup
 
 For the AVR64DD32 using hexadecimal data, use `tio cnh`, to see ASCII data, use `tio cna`
 
+Similar to `.gdbinit`, save the contents below in your home folder as `.tioconfig`
 ```
 # default is for AVR_C Uno-type boards
 [default]
@@ -679,3 +537,104 @@ Diagnostics:
   UnusedIncludes: None
   MissingIncludes: None
 ```
+
+## AVR64DD32 Curiosity Nano — Quick Notes
+
+A running scratchpad of board/chip gotchas worth remembering.
+
+### TCA0 (Timer A) PWM output pins
+TCA0's six waveform outputs (WO0–WO5) map to pins 0–5 of whichever port
+`PORTMUX.TCAROUTEA` selects.
+
+- **Default route is PORTA**, so WO0→PA0, WO1→PA1, WO2→PA2. But on the Nano,
+  **PA0/PA1 carry the 24 MHz crystal and are disconnected from the edge
+  connector by default** (to use them as GPIO: cut straps J214/J215 to free the
+  crystal, then bridge solder points J207/J208). So **PA2 is the only directly
+  usable default channel** — no board mods. (See `AVR64DD_examples/asm_blink_pwm`.)
+- **Route TCA0 to PORTD** (`PORTMUX.TCAROUTEA`) to get **WO1/WO2/WO3 on
+  PD1/PD2/PD3**, which are broken out on the header with no modifications —
+  handy when you want multiple PWM channels.
+- **LED0 is on PF5 = WO5**, which is reachable only via TCA0 **Split mode** +
+  PORTMUX routing to PORTF (more involved than the default single-channel path).
+
+Source: board pinout (`documentation/AVR64DD32_Curiosity_Nano.png`) and the
+Curiosity Nano User Guide §4.2.4 (24 MHz crystal).
+
+### Assembly `#include` gotcha: always open a Library file with `.section .text`
+
+The `main.S` examples pull in the shared routines with the C preprocessor,
+e.g.:
+
+```asm
+#include "clocks.S"
+#include "io.S"
+#include "sysclock.S"
+```
+
+Because these are textual `#include`s, **each file is assembled in whatever
+section the *previous* file left active** — there is no fresh compilation unit
+per file. Several Library files end with `.section .data` / `.section .bss`
+(a habit carried over from standalone assembly). So if the *next* included file
+starts defining code **without first selecting `.section .text`**, its
+instructions are emitted into `.bss` (or `.data`) and get a **RAM address**.
+
+Real bug this caused (`examples/taskblock`): `io.S` defined `bitmask` with no
+`.section .text`. Once `clocks.S` (which ends in `.section .bss`) was included
+*ahead* of it, `bitmask` landed in `.bss` at `0x6018`. `call bitmask` then
+jumped into SRAM, executed garbage, and the PC drifted to `0x0000` — which
+looks **exactly like a RESET** (no interrupt is involved, so an unused-vector
+trap never fires). A tell-tale symptom was being forced to change
+`rcall bitmask` → `call bitmask`, because the routine had moved thousands of
+bytes away, out of `rcall` range.
+
+Quick check after building:
+
+```sh
+avr-nm main.elf | grep <routine>   # must be 't' or 'T' (text), never 'b'/'d'
+```
+
+**Rule: every Library `.S` that emits code must begin with `.section .text`.**
+
+#### Skeleton for a new `Library/*.S` file
+
+```asm
+; ============================================================================
+;  <name>.S  —  <one-line description of what this module provides>
+;  Target : AVR64DD32 (Curiosity Nano)
+;
+;  ABI (AVR-GCC calling convention — match exactly if called from C):
+;    input : <byte in r24 / word in r25:r24 / flash ptr in Z=r31:r30>
+;    output: <byte in r24 / word in r25:r24>
+;    clobbers: <list any call-used regs you touch beyond the return>
+;  NOTE: r8:r9 are reserved repo-wide (sysclock tick counter) — never clobber.
+; ============================================================================
+
+; Included so the file also assembles standalone; header guard makes the
+; registers.S include harmless when it is pulled in more than once.
+#include <avr/io.h>
+#include "registers.S"
+
+; --- CODE ------------------------------------------------------------------
+; MUST come first: without this, code inherits a prior include's .data/.bss
+; section and ends up at a RAM address (see the gotcha above).
+.section .text
+
+.global <routine>              ; drop .global if only used within this file
+.type   <routine>, @function
+<routine>:
+        ; ... body ...
+        ret
+
+; --- DATA (optional) -------------------------------------------------------
+; Only if the module needs initialized constants in SRAM.
+.section .data
+
+; --- BSS (optional) --------------------------------------------------------
+; Only if the module needs zero-initialized SRAM variables.
+.section .bss
+```
+
+Note the trailing `.section .data` / `.section .bss` are exactly what "poison"
+the next include — they are fine here **because every file re-selects
+`.section .text` at its own top.** Keep that invariant and include order can
+never move your code into RAM.
