@@ -176,14 +176,14 @@ _start:
 ;    Copies the initialized TASKS[] image into SRAM so the tasks are live.
 ;------------------------------------------------------------------------------
 copy_data:
-        ldi     r26, lo8(__data_start)        ; X -> SRAM dest
-        ldi     r27, hi8(__data_start)
-        ldi     r30, lo8(__data_load_start)   ; Z -> Flash src
-        ldi     r31, hi8(__data_load_start)
+        ldi     tasks_26, lo8(__data_start)        ; X -> SRAM dest
+        ldi     tasks_27, hi8(__data_start)
+        ldi     Z_30_lo, lo8(__data_load_start)   ; Z -> Flash src
+        ldi     Z_31_hi, hi8(__data_load_start)
 copy_loop:
-        cpi     r26, lo8(__data_end)
+        cpi     tasks_26, lo8(__data_end)
         ldi     r25, hi8(__data_end)
-        cpc     r27, r25
+        cpc     tasks_27, r25
         breq    copy_done
         lpm     r24, Z+
         st      X+,  r24
@@ -210,14 +210,12 @@ main:
         ;       }
         ;}
 sched_loop:
-        ldi     r17, 0                        ; TASK index
+        ldi     temp_17, 0                        ; TASK index
 upd_next:
-        mov     r24, r17                      ; arg: TASKID
-        push    r17
+        mov     r24, temp_17                      ; arg: TASKID
         rcall   update
-        pop     r17
-        inc     r17
-        cpi     r17, MAX_TASKS
+        inc     temp_17
+        cpi     temp_17, MAX_TASKS
         brlo    upd_next
         rjmp    sched_loop
 
@@ -238,20 +236,20 @@ upd_next:
 update:
         push    r28                           ; preserve caller's Y
         push    r29
-        push    r17
+        push    temp_17
 
         ;----- Y = TASKS + TASKID * SIZE -----------------------------
         ; use mul to determine index-> index (r24) * SIZE r17 = r0:r1
 new_index:
-        ldi     r17, SIZE
-        mul     r24, r17
-        movw    r30, r0                       ; r30:r31 nth taskblock
+        ldi     temp_17, SIZE
+        mul     r24, temp_17
+        movw    Z_30_lo, r0                       ; r30:r31 nth taskblock
         eor     r1,r1                         ; set r1 back to 0
 
         ldi     r28, lo8(TASKS)
         ldi     r29, hi8(TASKS)
-        add     r28, r30                      ; Y = TASKS + nth offset
-        adc     r29, r31
+        add     r28, Z_30_lo                      ; Y = TASKS + nth offset
+        adc     r29, Z_31_hi
 
         ;----- now = ticks()  -> r24:r25 -----------------------------------
         rcall   ticks                         ; r24:r25 = now
@@ -307,7 +305,7 @@ state_is_low:
         sts     PORTA_SET, r24          ; PORTA.OUTSET — turn it on
 
 upd_done:
-        pop     r17
+        pop     temp_17
         pop     r29
         pop     r28
         ret
