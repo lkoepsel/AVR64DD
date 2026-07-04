@@ -48,7 +48,9 @@
         .equ    ON_TIME,  2     ; 2 bytes time on   (LE word)
         .equ    OFF_TIME, 4     ; 2 bytes time off  (LE word)
         .equ    ELAPSED,  6     ; 2 bytes last-toggle timestamp
-        .equ    SIZE,     8     ; bytes per task (no padding here)
+        .equ    SPARE,    8     ; 1 byte, spare, TBD
+        .equ    TASK_NO,  9     ; 1 byte, ASCII number for task
+        .equ    SIZE,     10    ; bytes per task (no padding here)
 
 ;==============================================================================
 ;  Registers and Values
@@ -106,18 +108,24 @@ TASKS:
         .word   DEFAULT_ON              ; ON_TIME  = 100
         .word   DEFAULT_OFF             ; OFF_TIME = 100
         .word   0                       ; ELAPSED
+        .byte   0xFF                    ; SPARE
+        .byte   0x30                    ; TASK_NO
         ; --- task 1 ---
         .byte   3
         .byte   LOW
         .word   DEFAULT_ON  << 1        ; 200
         .word   DEFAULT_OFF << 1        ; 200
         .word   0
+        .byte   0xFF                    ; SPARE
+        .byte   0x31                    ; TASK_NO
         ; --- task 2 ---
         .byte   4
         .byte   LOW
         .word   DEFAULT_ON  << 2        ; 400
         .word   DEFAULT_OFF << 2        ; 400
         .word   0
+        .byte   0xFF                    ; SPARE
+        .byte   0x32                    ; TASK_NO
 
         ; Guard: array must be exactly MAX_TASKS * SIZE bytes.
         .if     (. - TASKS) != (MAX_TASKS * SIZE)
@@ -164,18 +172,6 @@ bad_wait:
 ;------------------------------------------------------------------------------
 _start:
 ;------------------------------------------------------------------------------
-;  init stack : freestanding (-nostartfiles) means no CRT sets SP for us.
-;    SP does NOT come up at RAMEND on its own here, so point it at RAMEND
-;    (0x7FFF, top of the 8 KB SRAM) before the first rcall/push. Without this
-;    the stack lives in unimplemented data space, pushes are lost, and the
-;    first ret reads 0x0000 -> jumps to _start, looking exactly like a RESET.
-;------------------------------------------------------------------------------
-        ldi     temp_16, hi8(RAMEND)
-        out     STACK_HIGH, temp_16     ; SPH
-        ldi     temp_16, lo8(RAMEND)
-        out     STACK_LOW, temp_16      ; SPL
-
-;------------------------------------------------------------------------------
 ;  copy_data : Flash (LMA) -> SRAM (VMA)  (hand-rolled __do_copy_data)
 ;    Copies the initialized TASKS[] image into SRAM so the tasks are live.
 ;------------------------------------------------------------------------------
@@ -198,12 +194,12 @@ copy_done:
 ;  main
 ;------------------------------------------------------------------------------
 main:
-        ; rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
+        rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
         ; set pins to output
         ldi     temp_16, PA_OUT
         out     VPA_DIR, temp_16        ; set PA2-4 to outputs
 
-        rcall   init_sysclock_1k        ; start the millisecond/6 tick
+        rcall   init_sysclock_1k        ; start the 100 millisecond/6 tick
 
         ;----- One line scheduler - update each task ------------------------
         ; while (1) 
@@ -245,18 +241,16 @@ update:
         push    r17
 
         ;----- Y = TASKS + TASKID * SIZE -----------------------------
-        ; SIZE == 8, so index*8 = index << 3.
-        mov     r30, r24                      ; r30 = TASKID
-        ldi     r31, 0
-        lsl     r30                           ; *2
-        rol     r31
-        lsl     r30                           ; *4
-        rol     r31
-        lsl     r30                           ; *8
-        rol     r31                           ; r31:r30 = TASKID*SIZE
+        ; use mul to determine index-> index (r24) * SIZE r17 = r0:r1
+new_index:
+        ldi     r17, SIZE
+        mul     r24, r17
+        movw    r30, r0                       ; r30:r31 nth taskblock
+        eor     r1,r1                         ; set r1 back to 0
+
         ldi     r28, lo8(TASKS)
         ldi     r29, hi8(TASKS)
-        add     r28, r30                      ; Y = TASKS + offset
+        add     r28, r30                      ; Y = TASKS + nth offset
         adc     r29, r31
 
         ;----- now = ticks()  -> r24:r25 -----------------------------------
@@ -291,7 +285,7 @@ update:
         std     Y+ELAPSED+1, r25        ; elapsed = now (high)
         ldd     r24, Y+PIN              ; arg1: pin
 
-        call    bitmask                 ; r24 = (1 << pin)
+        rcall    bitmask                 ; r24 = (1 << pin)
         sts     PORTA_CLR, r24          ; PORTA.OUTSET — turn it off
 
         rjmp    upd_done
@@ -309,7 +303,7 @@ state_is_low:
         std     Y+ELAPSED,   r24        ; elapsed = now (low)
         std     Y+ELAPSED+1, r25        ; elapsed = now (high)
         ldd     r24, Y+PIN              ; arg1: pin
-        call    bitmask                 ; r24 = (1 << pin)
+        rcall    bitmask                 ; r24 = (1 << pin)
         sts     PORTA_SET, r24          ; PORTA.OUTSET — turn it on
 
 upd_done:
