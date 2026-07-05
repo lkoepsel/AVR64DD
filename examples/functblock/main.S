@@ -30,6 +30,7 @@
 #include "io.S"
 #include "sysclock.S"
 #include "sysclock_b.S"
+#include "serial.S"
 
 ;------------------------------------------------------------------------------
 ;  Constants
@@ -166,6 +167,8 @@ main:
 
         rcall   init_sysclock_1k        ; start the 100 millisecond/6 tick
         rcall   init_sysclock_100u      ; setup ISR to track tasks running
+        rcall   init_serial             ; setup serial console
+
         sei
         rjmp   sched_loop               ; go to scheduler and do not return
 
@@ -317,6 +320,9 @@ state_is_low:
         sts     PORTA_SET, r24          ; PORTA.OUTSET — turn it on
 
 upd_done:
+        ldd     r24, Y+TASK_NO
+        rcall   char_write
+
         pop     temp_17
         pop     r29
         pop     r28
@@ -343,24 +349,12 @@ task0:
         ldi     r24, t0
         rcall   get_block
         rcall   update        
-        ; ldi     task_21, t0
-        ; mov     out_5, task_21
-        ; out     VPA_OUT, out_5
-        ; delay_16 time_0
-        ; rcall   ticks
-        ; rcall   word_write
         ret
 task1:
         .equ    t1, 1
         ldi     r24, t1
         rcall   get_block        
         rcall   update
-        ; ldi     task_21, t1
-        ; mov     out_5, task_21
-        ; lsl     out_5
-        ; lsl     out_5
-        ; out     VPA_OUT, out_5
-        ; delay_16 time_0
         ret
 
 task2:
@@ -368,12 +362,6 @@ task2:
         ldi     r24, t2
         rcall   get_block        
         rcall   update
-        ; ldi     task_21, t2
-        ; mov     out_5, task_21
-        ; lsl     out_5
-        ; lsl     out_5
-        ; out     VPA_OUT, out_5
-        ; delay_16 time_0
         ret
 
 ; ---- The table: each entry is the WORD address of a task ----
@@ -387,9 +375,6 @@ jump_table:
         .word   pm(task2)
         .word   pm(task1)
         .word   pm(task0)
-        ; .word   pm(task2)
-        ; .word   pm(task1)
-        ; .word   pm(task0)
 jump_table_end:
 
 ;==============================================================================
