@@ -68,6 +68,7 @@ main_setup:
 
     rcall   init_sysclock_1k
     rcall   init_serial
+    sei
 
 main_loop:
     ldi     char_24, HEX_BEG

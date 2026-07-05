@@ -160,7 +160,7 @@ _start:
 ;------------------------------------------------------------------------------
 main:
         rcall   copy_data               ; initialize task blocks
-        rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
+        ; rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
         ; set pins to output
         ldi     temp_16, PA_OUT
         out     VPA_DIR, temp_16        ; set PA2-4 to outputs
@@ -318,10 +318,10 @@ state_is_low:
         ldd     r24, Y+PIN              ; arg1: pin
         rcall    bitmask                 ; r24 = (1 << pin)
         sts     PORTA_SET, r24          ; PORTA.OUTSET — turn it on
+        ldd   char_24, Y+TASK_NO
+        rcall char_write
 
 upd_done:
-        ldd     r24, Y+TASK_NO
-        rcall   char_write
 
         pop     temp_17
         pop     r29
@@ -347,12 +347,15 @@ get_block:
 task0:
         .equ    t0, 0
         ldi     r24, t0
+        mov     out_5, r24
+
         rcall   get_block
         rcall   update        
         ret
 task1:
         .equ    t1, 1
         ldi     r24, t1
+        mov     out_5, r24
         rcall   get_block        
         rcall   update
         ret
@@ -360,6 +363,7 @@ task1:
 task2:
         .equ    t2, 2  
         ldi     r24, t2
+        mov     out_5, r24
         rcall   get_block        
         rcall   update
         ret

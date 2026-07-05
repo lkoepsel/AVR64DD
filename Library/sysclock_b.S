@@ -37,7 +37,7 @@
 
 .section .text
 
-    .equ  ccmp_val, 400             ; 25us ticks @16Mhz
+    .equ  ccmp_val, 800             ; 25us ticks @16Mhz
 ; --------------------------------------------------------------------
 ;  init_sysclock_100u : configure TCB0 for a 25us periodic interrupt.
 ;  Call once, with interrupts disabled, before sei.
@@ -92,7 +92,7 @@ TCB0_INT_handler:
     sts   TCB0_INTFLAGS, temp_17
     pop   temp_17                   ; restore r17 before returning to mainline
 
-    st    X+, task_21               ; on interrupt, save task to buffer
+    st    X+, out_5               ; on interrupt, save task to buffer
     
     ; ring buffer, if at end, reload
     cpi   tasks_26, lo8(tasks + tasks_size)

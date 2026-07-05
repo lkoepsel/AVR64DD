@@ -6,6 +6,7 @@
 ; =============================================================
 
 #include <avr/io.h>
+#include "clocks.S"
 #include "registers.S"
 #include "serial.S"
 
@@ -56,7 +57,7 @@ reset_handler:
 ; main – application logic starts here
 ; --------------------------------------------------------------------
 main_setup:
-
+    rcall   set_4M
     rcall   init_serial
 
     ; prompt to show terminal is live
@@ -65,10 +66,10 @@ main_setup:
     rcall   flash_write
 
 ; simple echo loop to test read/write char
-main_loop:
+echo_loop:
     rcall   char_read
     rcall   char_write
-    rjmp    main_loop
+    rjmp    echo_loop
 
 
 ; ====================================================================

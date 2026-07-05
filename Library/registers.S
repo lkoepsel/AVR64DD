@@ -32,8 +32,8 @@
 #define ticks_9_hi  r9      // used in sys_clock ISR for ticks
 #define temp_10     r10     // temp registers, sysclock, oneline_mt
 #define temp_11     r11     // temp registers, sysclock, oneline_mt
-; free              r12
-; free              r13
+#define char_12     r12
+#define char_13     r13
 ; free              r14
 ; free              r15
 #define temp_16     r16

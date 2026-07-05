@@ -4,7 +4,7 @@
 
 # Working registers to show, in display order. asm_blink's delay loop uses the
 # temporaries r18/r19/r20 (temp_18 / temp_19 / temp_20 in Library/registers.S).
-AVR_REG_SET = ["r16", "r17", "r18", "r19", "r20", "r21", "r22", "r23", "r24", "r25"]
+AVR_REG_SET = ["r12", "r13"]
 
 # 16-bit pointer pairs to show as one combined value: (low, high, label).
 AVR_REG_PAIRS = [("r26", "r27", "X"),("r28", "r29", "Y"),("r30", "r31", "Z")]
@@ -17,8 +17,8 @@ REGS_PER_ROW = 4
 # AvrSram module (avr_modules.py) shows addr + 16 hex bytes + ASCII per row and
 # is auto-added to the layout when this list is non-empty. Dump the start of
 # SRAM here; point at a .data/.bss label's address instead once you add one.
-AVR_SRAM = [(0x6000, 0x0A, "TASK 0"),
-            (0x600A, 0x0A, "TASK 1"),
-            (0x6014, 0x0A, "TASK 2"),
-            (0x601e, 0x80, "TASKS"),
-            (0x7ff0, 0x10, "stack")]
+# AVR_SRAM = [(0x6000, 0x0A, "TASK 0"),
+#             (0x600A, 0x0A, "TASK 1"),
+#             (0x6014, 0x0A, "TASK 2"),
+#             (0x601e, 0x80, "TASKS"),
+#             (0x7ff0, 0x10, "stack")]
