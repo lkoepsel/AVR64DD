@@ -29,6 +29,7 @@
 #include "clocks.S"
 #include "io.S"
 #include "sysclock.S"
+#include "sysclock_b.S"
 
 ;------------------------------------------------------------------------------
 ;  Constants
@@ -351,26 +352,28 @@ task0:
         ret
 task1:
         .equ    t1, 1
-        ldi     r24, t0
+        ldi     r24, t1
         rcall   get_block        
-        ldi     task_21, t1
-        mov     out_5, task_21
-        lsl     out_5
-        lsl     out_5
-        out     VPA_OUT, out_5
-        delay_16 time_0
+        rcall   update
+        ; ldi     task_21, t1
+        ; mov     out_5, task_21
+        ; lsl     out_5
+        ; lsl     out_5
+        ; out     VPA_OUT, out_5
+        ; delay_16 time_0
         ret
 
 task2:
         .equ    t2, 2  
-        ldi     r24, t0
+        ldi     r24, t2
         rcall   get_block        
-        ldi     task_21, t2
-        mov     out_5, task_21
-        lsl     out_5
-        lsl     out_5
-        out     VPA_OUT, out_5
-        delay_16 time_0
+        rcall   update
+        ; ldi     task_21, t2
+        ; mov     out_5, task_21
+        ; lsl     out_5
+        ; lsl     out_5
+        ; out     VPA_OUT, out_5
+        ; delay_16 time_0
         ret
 
 ; ---- The table: each entry is the WORD address of a task ----
