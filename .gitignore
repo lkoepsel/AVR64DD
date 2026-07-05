@@ -25,3 +25,4 @@ bloom.yaml
 .gdb_history
 *.stc
 .clangd
+*.dwf3work
