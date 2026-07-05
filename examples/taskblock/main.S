@@ -88,7 +88,7 @@ __vectors:
     jmp     bad_interrupt       ; 0x02C  vector 11 TCA0_CMP0
     jmp     bad_interrupt       ; 0x030  vector 12 TCA0_CMP1
     jmp     bad_interrupt       ; 0x034  vector 13 TCA0_CMP2
-    jmp     TCB0_INT_handler    ; 0x038  vector 14 TCB0_INT 
+    jmp     bad_interrupt       ; 0x038  vector 14 TCB0_INT 
 
 ;==============================================================================
 ;  SECTION 2 : Data
@@ -181,7 +181,7 @@ main:
         out     VPA_DIR, temp_16        ; set PA2-4 to outputs
 
         rcall   init_sysclock_1k        ; start the 100 millisecond/6 tick
-
+        sei
         ;----- One line scheduler - update each task ------------------------
         ; while (1) 
         ;{

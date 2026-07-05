@@ -261,7 +261,6 @@ update:
         push    r29
         push    temp_17                 ; preserve r17
 
-        rcall   get_block
         ;----- now = ticks()  -> r24:r25 --------------------------------------
         ; keep result in r24:r25 throughout
         rcall   ticks                   
@@ -341,13 +340,14 @@ get_block:
 task0:
         .equ    t0, 0
         ldi     r24, t0
-        rcall   get_block        
-        ldi     task_21, t0
-        mov     out_5, task_21
-        out     VPA_OUT, out_5
-        delay_16 time_0
-        rcall   ticks
-        rcall   word_write
+        rcall   get_block
+        rcall   update        
+        ; ldi     task_21, t0
+        ; mov     out_5, task_21
+        ; out     VPA_OUT, out_5
+        ; delay_16 time_0
+        ; rcall   ticks
+        ; rcall   word_write
         ret
 task1:
         .equ    t1, 1
@@ -384,9 +384,9 @@ jump_table:
         .word   pm(task2)
         .word   pm(task1)
         .word   pm(task0)
-        .word   pm(task2)
-        .word   pm(task1)
-        .word   pm(task0)
+        ; .word   pm(task2)
+        ; .word   pm(task1)
+        ; .word   pm(task0)
 jump_table_end:
 
 ;==============================================================================
