@@ -1,7 +1,8 @@
 ;==============================================================================
-;  taskblock.S
+;  functblock.S
 ;------------------------------------------------------------------------------
-;  Assembly version of the "one-line kernel" cooperative multitasker.
+;  Function version of taskblock, the "one-line kernel" cooperative multitasker.
+;  Stepping stone version to multitasking OS
 ;
 ;  An array of MAX_TASKS task blocks drive a pin on/off on its own
 ;  schedule. The main loop walks the array calling update() on each task;
@@ -141,7 +142,6 @@ TASKS:
         .global  _start
         .global  main
         .global  update
-        .global  bad_interrupt
 
 ;------------------------------------------------------------------------------
 ;  _start : entry from RESET vector
