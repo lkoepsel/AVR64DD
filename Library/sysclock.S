@@ -117,7 +117,7 @@ init_sysclock_1k:
     ldi     temp_16, (0x4 << TCA_SINGLE_CLKSEL_gp) | TCA_SINGLE_ENABLE_bm
     sts     TCA0_SINGLE_CTRLA, temp_16
 
-    sei                                 ; global interrupt enable
+    ; sei                                 ; global interrupt enable
     ret
 
 ; --------------------------------------------------------------------

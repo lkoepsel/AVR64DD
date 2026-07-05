@@ -85,6 +85,11 @@ __vectors:
     jmp     bad_interrupt       ; 0x01C  vector 7  CCL_CCL
     jmp     bad_interrupt       ; 0x020  vector 8  PORTA_PORT
     jmp     TCA0_OVF_handler    ; 0x024  vector 9  TCA0_OVF
+    jmp     bad_interrupt       ; 0x028  vector 10 TCA0_HUNF
+    jmp     bad_interrupt       ; 0x02C  vector 11 TCA0_CMP0
+    jmp     bad_interrupt       ; 0x030  vector 12 TCA0_CMP1
+    jmp     bad_interrupt       ; 0x034  vector 13 TCA0_CMP2
+    jmp     TCB0_INT_handler    ; 0x038  vector 14 TCB0_INT 
 
 ;==============================================================================
 ;  SECTION 2 : Data
@@ -159,12 +164,13 @@ main:
         out     VPA_DIR, temp_16        ; set PA2-4 to outputs
 
         rcall   init_sysclock_1k        ; start the 100 millisecond/6 tick
-
+        rcall   init_sysclock_100u      ; setup ISR to track tasks running
+        sei
         rjmp   sched_loop               ; go to scheduler and do not return
 
 ; ******************* Functions ***********************************************
 ;------------------------------------------------------------------------------
-;  sched_loop : One way scheduler which round-robins the tasks
+;  sched_loop : Table-based scheduler which round-robins the tasks via a table
 ;    Does not return.
 ;------------------------------------------------------------------------------
         ;----- One line scheduler - update each task ------------------------
@@ -177,14 +183,31 @@ main:
         ;}
 .type   sched_loop, @function
 sched_loop:
-        ldi     temp_17, 0                        ; TASK index
-upd_next:
-        mov     r24, temp_17                      ; arg: TASKID
-        rcall   update
-        inc     temp_17
-        cpi     temp_17, MAX_TASKS
-        brlo    upd_next
-        rjmp    sched_loop
+reload:
+        ; ---- Start at the last table entry and dispatch down to 0 ----
+        ldi     temp_16, NUM_TASKS - 1   ; index of last entry (count auto-computed)
+        mov     index_4, temp_16         ; r4 = saved index, survives icall
+
+dispatch:
+        ; Z = jump_table + (index * 1 word)
+        mov     temp_16, index_4        ; working copy of the index
+        lsl     temp_16                 ; index * 2 (each entry is 1 word = 2 bytes)
+        ldi     ZL, lo8(jump_table)
+        ldi     ZH, hi8(jump_table)
+        add     ZL, temp_16
+        adc     ZH, r1                  ; r1 assumed 0
+
+        ; Load the task's WORD address stored in the table. LPM cannot target
+        ; Z_30_lo/Z_31_hi (Z) directly, so read into r7:r6 then movw into Z in one op.
+        lpm     temp_6, Z+
+        lpm     temp_7, Z
+        movw    ZL, temp_6                  ; ZL<-r6 (low), ZH<-r7 (high)
+        ; Z holds the word-address of the target task
+        icall                             ; push PC, jump to (Z)
+
+        dec     index_4
+        brmi    reload
+        rjmp    dispatch
 
 ;------------------------------------------------------------------------------
 ;  copy_data : Flash (LMA) -> SRAM (VMA)  (hand-rolled __do_copy_data)
@@ -234,42 +257,31 @@ copy_done:
 ;  correctly modulo 65536, same as the C uint arithmetic.
 ;------------------------------------------------------------------------------
 update:
-        push    r28                           ; preserve caller's Y
+        push    r28                     ; preserve caller's Y
         push    r29
-        push    temp_17
+        push    temp_17                 ; preserve r17
 
-        ;----- Y = TASKS + TASKID * SIZE -----------------------------
-        ; use mul to determine index-> index (r24) * SIZE r17 = r0:r1
-new_index:
-        ldi     temp_17, SIZE
-        mul     r24, temp_17
-        movw    Z_30_lo, r0                       ; r30:r31 nth taskblock
-        eor     r1,r1                         ; set r1 back to 0
-
-        ldi     r28, lo8(TASKS)
-        ldi     r29, hi8(TASKS)
-        add     r28, Z_30_lo                      ; Y = TASKS + nth offset
-        adc     r29, Z_31_hi
-
-        ;----- now = ticks()  -> r24:r25 -----------------------------------
-        rcall   ticks                         ; r24:r25 = now
+        rcall   get_block
+        ;----- now = ticks()  -> r24:r25 --------------------------------------
         ; keep result in r24:r25 throughout
+        rcall   ticks                   
 
-        ;----- diff = now - elapsed  -> r20:r21 ----------------------------
-        ldd     r20, Y+ELAPSED                ; elapsed low
-        ldd     r21, Y+ELAPSED+1              ; elapsed high
+        ;----- diff = now - elapsed  -> r20:r21 -------------------------------
+        ldd     r20, Y+ELAPSED          ; elapsed low
+        ldd     r21, Y+ELAPSED+1        ; elapsed high
         ; diff = now - elapsed
         mov     r18, r24
         mov     r19, r25
         sub     r18, r20
         sbc     r19, r21                ; r19:r18 = now - elapsed
 
-        ;----- branch on current state -------------------------------------
+        ;----- branch on current state ----------------------------------------
         ldd     r16, Y+STATE
         cpi     r16, HIGH
         brne    state_is_low
 
-;--- state == HIGH : expire after ON_TIME ---
+;--- state == HIGH : expire after ON_TIME -------------------------------------
+state_is_high:
         ldd     r22, Y+ON_TIME          ; threshold low
         ldd     r23, Y+ON_TIME+1        ; threshold high
         ; if (diff >= on)  i.e. NOT (diff < on)
@@ -310,6 +322,73 @@ upd_done:
         pop     r28
         ret
 
+;----- get task block ---------------------------------------------------------
+        ;----- Y = TASKS + TASKID * SIZE --------------------------------------
+        ; use mul to determine index-> index (r24) * SIZE r17 = r0:r1
+get_block:
+        ;----- get next task block for execution ------------------------------
+        ldi     temp_17, SIZE
+        mul     r24, temp_17
+        movw    Z_30_lo, r0             ; r30:r31 nth taskblock
+        eor     r1,r1                   ; set r1 back to 0
+
+        ldi     r28, lo8(TASKS)
+        ldi     r29, hi8(TASKS)
+        add     r28, Z_30_lo            ; Y = TASKS + nth task offset
+        adc     r29, Z_31_hi            ; Y now contains task pointer
+        ret
+
+task0:
+        .equ    t0, 0
+        ldi     r24, t0
+        rcall   get_block        
+        ldi     task_21, t0
+        mov     out_5, task_21
+        out     VPA_OUT, out_5
+        delay_16 time_0
+        rcall   ticks
+        rcall   word_write
+        ret
+task1:
+        .equ    t1, 1
+        ldi     r24, t0
+        rcall   get_block        
+        ldi     task_21, t1
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
+        delay_16 time_0
+        ret
+
+task2:
+        .equ    t2, 2  
+        ldi     r24, t0
+        rcall   get_block        
+        ldi     task_21, t2
+        mov     out_5, task_21
+        lsl     out_5
+        lsl     out_5
+        out     VPA_OUT, out_5
+        delay_16 time_0
+        ret
+
+; ---- The table: each entry is the WORD address of a task ----
+; Entry count, computed by the assembler from the table span.
+; Each entry is a .word (2 bytes), so divide the byte length by 2.
+; Table execution starts at the bottom, goes to the top
+        .equ    NUM_TASKS, (jump_table_end - jump_table) / 2
+
+        .balign 2
+jump_table:
+        .word   pm(task2)
+        .word   pm(task1)
+        .word   pm(task0)
+        .word   pm(task2)
+        .word   pm(task1)
+        .word   pm(task0)
+jump_table_end:
+
 ;==============================================================================
-;  End of taskblock.S
+;  End of functblock.S
 ;==============================================================================

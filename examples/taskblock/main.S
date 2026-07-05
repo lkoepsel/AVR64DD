@@ -84,6 +84,11 @@ __vectors:
     jmp     bad_interrupt       ; 0x01C  vector 7  CCL_CCL
     jmp     bad_interrupt       ; 0x020  vector 8  PORTA_PORT
     jmp     TCA0_OVF_handler    ; 0x024  vector 9  TCA0_OVF
+    jmp     bad_interrupt       ; 0x028  vector 10 TCA0_HUNF
+    jmp     bad_interrupt       ; 0x02C  vector 11 TCA0_CMP0
+    jmp     bad_interrupt       ; 0x030  vector 12 TCA0_CMP1
+    jmp     bad_interrupt       ; 0x034  vector 13 TCA0_CMP2
+    jmp     TCB0_INT_handler    ; 0x038  vector 14 TCB0_INT 
 
 ;==============================================================================
 ;  SECTION 2 : Data
