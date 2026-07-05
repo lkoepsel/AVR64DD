@@ -638,3 +638,90 @@ Note the trailing `.section .data` / `.section .bss` are exactly what "poison"
 the next include — they are fine here **because every file re-selects
 `.section .text` at its own top.** Keep that invariant and include order can
 never move your code into RAM.
+
+## Upgrading the AVR64DD32 Curiosity Nano
+The *CN* has firmware which drives the debugger and aspects of the AVR64DD32 chip such as the target voltage. As such, its best to keep the firmware upgraded, my original firmware was 1.25 and I upgraded to 1.34.
+
+### Install tool for upgrading the Curiosity Nano
+
+
+```bash
+uv tool install pydebuggerupgrade
+```
+
+### Help command
+
+```bash
+pydebuggerupgrade --help
+usage: pydebuggerupgrade [-h] [-t TOOL] [-a] [-b] [-s SERIALNUMBER] [-v {debug,info,warning,error,critical}]
+                         [-T TIMEOUT] [-r] [-f] [-m] [-V] [-R]
+                         firmware
+
+Firmware upgrade utility for tools with DFU bootloader
+Can upgrade using firmware images from:
+    - hex file by specifying its path
+    - zip package by specifying its path
+    - latest released firmware from the pack server by specifying "latest"
+    - pack server by specifying the exact pack version (NB: not firmware version)
+    - artifactory by specifying "continuous", "stable", "release" (Microchip internal only)
+    - artifactory by specifying the exact artifact version (Microchip internal only)
+Pack server is located at: https://packs.download.microchip.com
+
+positional arguments:
+  firmware              firmware image to program to tool
+
+options:
+  -h, --help            show this help message and exit
+  -t, --tool TOOL       tool to connect to, default is 'nedbg'
+  -a, --all             upgrade all tools matching the tool type and USB serial number
+  -b, --allboot         upgrade all tools matching the tool type that are already in boot mode before doing the
+                        upgrade of the tool with the specified USB serial number
+  -s, --serialnumber SERIALNUMBER
+                        USB serial number of the unit to use. Substring matching on end of USB serial number is
+                        supported
+  -v, --verbose {debug,info,warning,error,critical}
+                        Logging verbosity level
+  -T, --timeout TIMEOUT
+                        timeout in seconds when attempting to connect to tool
+  -r, --report          report firmware versions only
+  -f, --force           force upgrade or downgrade (no version checking)
+  -m, --microchip       use Microchip internal artifact server
+  -V, --version         print pydebuggerupgrade version number and exit
+  -R, --release-info    Print pydebuggerupgrade release details and exit
+
+Usage examples:
+
+    Upgrade PKOB nano (nEDBG) with hex
+    - pydebuggerupgrade -t nedbg nedbg.hex
+
+    Upgrade PKOB nano (nEDBG) with zip
+    - pydebuggerupgrade -t nedbg nedbg_fw-1.13.458.zip
+
+    Upgrade PKOB nano (nEDBG) with a specific pack version (not firmware version) from pack server
+    - pydebuggerupgrade -t nedbg 1.0.33
+
+    Upgrade PKOB nano (nEDBG) with firmware from the latest released pack
+    - pydebuggerupgrade -t nedbg latest
+
+    Upgrade PKOB nano (nEDBG) from artifact repository by status label (Microchip internal only)
+    - pydebuggerupgrade -t nedbg -m release
+
+    Upgrade PKOB nano (nEDBG) from artifact repository by version (Microchip internal only)
+    - pydebuggerupgrade -t nedbg -m 1.16.507
+```
+
+### Report existing firmware and confirm device is found
+~/Documents/AVR64DD (main) $ pydebuggerupgrade -r
+Reporting firmware versions
+nedbg:MC020019502HIP003010=1.25.116
+```
+
+### Upgrade to the latest and confirm
+```bash
+~/Documents/AVR64DD (main) $ pydebuggerupgrade -t nedbg latest
+Upgrading nedbg (MC020019502HIP003010) to 'latest'
+Upgrade to firmware version '1.34.89' successful
+~/Documents/AVR64DD (main) $ pydebuggerupgrade -r
+Reporting firmware versions
+nedbg:MC020019502HIP003010=1.34.89
+```
