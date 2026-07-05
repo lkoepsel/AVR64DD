@@ -147,11 +147,58 @@ TASKS:
 ;  _start : entry from RESET vector
 ;------------------------------------------------------------------------------
 _start:
+
+;------------------------------------------------------------------------------
+;  main
+;------------------------------------------------------------------------------
+main:
+        rcall   copy_data               ; initialize task blocks
+        rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
+        ; set pins to output
+        ldi     temp_16, PA_OUT
+        out     VPA_DIR, temp_16        ; set PA2-4 to outputs
+
+        rcall   init_sysclock_1k        ; start the 100 millisecond/6 tick
+
+        rjmp   sched_loop               ; go to scheduler and do not return
+
+; ******************* Functions ***********************************************
+;------------------------------------------------------------------------------
+;  sched_loop : One way scheduler which round-robins the tasks
+;    Does not return.
+;------------------------------------------------------------------------------
+        ;----- One line scheduler - update each task ------------------------
+        ; while (1) 
+        ;{
+        ;       for (i = 0; i < MAX_TASKS; ++i) 
+        ;       {
+        ;              update(i);
+        ;       }
+        ;}
+.type   sched_loop, @function
+sched_loop:
+        ldi     temp_17, 0                        ; TASK index
+upd_next:
+        mov     r24, temp_17                      ; arg: TASKID
+        rcall   update
+        inc     temp_17
+        cpi     temp_17, MAX_TASKS
+        brlo    upd_next
+        rjmp    sched_loop
+
 ;------------------------------------------------------------------------------
 ;  copy_data : Flash (LMA) -> SRAM (VMA)  (hand-rolled __do_copy_data)
 ;    Copies the initialized TASKS[] image into SRAM so the tasks are live.
 ;------------------------------------------------------------------------------
+.type   copy_data, @function
 copy_data:
+        push    r24
+        push    r25
+        push    r26
+        push    r27
+        push    r30
+        push    r31
+
         ldi     tasks_26, lo8(__data_start)        ; X -> SRAM dest
         ldi     tasks_27, hi8(__data_start)
         ldi     Z_30_lo, lo8(__data_load_start)   ; Z -> Flash src
@@ -165,36 +212,13 @@ copy_loop:
         st      X+,  r24
         rjmp    copy_loop
 copy_done:
-
-;------------------------------------------------------------------------------
-;  main
-;------------------------------------------------------------------------------
-main:
-        rcall   set_24M                 ; set clock to 24Mhz, a x6 on sys clock
-        ; set pins to output
-        ldi     temp_16, PA_OUT
-        out     VPA_DIR, temp_16        ; set PA2-4 to outputs
-
-        rcall   init_sysclock_1k        ; start the 100 millisecond/6 tick
-
-        ;----- One line scheduler - update each task ------------------------
-        ; while (1) 
-        ;{
-        ;       for (i = 0; i < MAX_TASKS; ++i) 
-        ;       {
-        ;              update(i);
-        ;       }
-        ;}
-sched_loop:
-        ldi     temp_17, 0                        ; TASK index
-upd_next:
-        mov     r24, temp_17                      ; arg: TASKID
-        rcall   update
-        inc     temp_17
-        cpi     temp_17, MAX_TASKS
-        brlo    upd_next
-        rjmp    sched_loop
-
+        pop     r31
+        pop     r30
+        pop     r27
+        pop     r26
+        pop     r24
+        pop     r25
+        ret
 ;------------------------------------------------------------------------------
 ;  update(uint8_t TASKID)   TASKID in r24
 ;------------------------------------------------------------------------------
