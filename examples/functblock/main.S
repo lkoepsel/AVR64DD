@@ -35,7 +35,7 @@
 ;------------------------------------------------------------------------------
 ;  Constants
 ;------------------------------------------------------------------------------
-        .equ    MAX_TASKS, 3
+        .equ    MAX_TASKS, 6
         .equ    DEFAULT_ON,   100
         .equ    DEFAULT_OFF,  100
 
@@ -111,7 +111,7 @@ __vectors:
         .global  TASKS
 TASKS:
         ; --- task 0 ---
-        .byte   2                       ; PIN
+        .byte   0                       ; PIN
         .byte   LOW                     ; STATE
         .word   DEFAULT_ON              ; ON_TIME  = 100
         .word   DEFAULT_OFF             ; OFF_TIME = 100
@@ -119,7 +119,7 @@ TASKS:
         .byte   0xFF                    ; SPARE
         .byte   0x30                    ; TASK_NO
         ; --- task 1 ---
-        .byte   3
+        .byte   0
         .byte   LOW
         .word   DEFAULT_ON  << 1        ; 200
         .word   DEFAULT_OFF << 1        ; 200
@@ -127,13 +127,37 @@ TASKS:
         .byte   0xFF                    ; SPARE
         .byte   0x31                    ; TASK_NO
         ; --- task 2 ---
-        .byte   4
+        .byte   0
         .byte   LOW
         .word   DEFAULT_ON  << 2        ; 400
         .word   DEFAULT_OFF << 2        ; 400
         .word   0
         .byte   0xFF                    ; SPARE
         .byte   0x32                    ; TASK_NO
+        ; --- task 3 ---
+        .byte   2                       ; PIN
+        .byte   LOW                     ; STATE
+        .word   DEFAULT_ON              ; ON_TIME  = 100
+        .word   DEFAULT_OFF             ; OFF_TIME = 100
+        .word   0                       ; ELAPSED
+        .byte   0xFF                    ; SPARE
+        .byte   0x33                    ; TASK_NO
+        ; --- task 4 ---
+        .byte   3
+        .byte   LOW
+        .word   DEFAULT_ON  << 1        ; 200
+        .word   DEFAULT_OFF << 1        ; 200
+        .word   0
+        .byte   0xFF                    ; SPARE
+        .byte   0x34                    ; TASK_NO
+        ; --- task 5 ---
+        .byte   4
+        .byte   LOW
+        .word   DEFAULT_ON  << 2        ; 400
+        .word   DEFAULT_OFF << 2        ; 400
+        .word   0
+        .byte   0xFF                    ; SPARE
+        .byte   0x35                    ; TASK_NO
 
         ; Guard: array must be exactly MAX_TASKS * SIZE bytes.
         .if     (. - TASKS) != (MAX_TASKS * SIZE)
@@ -148,7 +172,7 @@ TASKS:
         .section .text
         .global  _start
         .global  main
-        .global  update
+        .global  pin_out
 
 ;------------------------------------------------------------------------------
 ;  _start : entry from RESET vector
@@ -247,7 +271,7 @@ copy_done:
         pop     r25
         ret
 ;------------------------------------------------------------------------------
-;  update(uint8_t TASKID)   TASKID in r24
+;  pin_out(uint8_t TASKID)   TASKID in r24
 ;------------------------------------------------------------------------------
 ;  Computes Y = TASKS + TASKID*SIZE, then replicates the C logic:
 ;
@@ -260,7 +284,7 @@ copy_done:
 ;  All time math is unsigned 16-bit; the (now - elapsed) subtraction wraps
 ;  correctly modulo 65536, same as the C uint arithmetic.
 ;------------------------------------------------------------------------------
-update:
+pin_out:
         push    r28                     ; preserve caller's Y
         push    r29
         push    temp_17                 ; preserve r17
@@ -290,7 +314,7 @@ state_is_high:
         ; if (diff >= on)  i.e. NOT (diff < on)
         cp      r18, r22
         cpc     r19, r23
-        brlo    upd_done                ; diff < on -> not yet
+        brlo    pin_done                ; diff < on -> not yet
         ; --- turn OFF ---
         ldi     r16, LOW
         std     Y+STATE, r16    ; state = LOW
@@ -301,7 +325,7 @@ state_is_high:
         rcall    bitmask                 ; r24 = (1 << pin)
         sts     PORTA_CLR, r24          ; PORTA.OUTSET — turn it off
 
-        rjmp    upd_done
+        rjmp    pin_done
 
 ;--- state == LOW : expire after OFF_TIME ---
 state_is_low:
@@ -309,7 +333,7 @@ state_is_low:
         ldd     r23, Y+OFF_TIME+1       ; threshold high
         cp      r18, r22
         cpc     r19, r23
-        brlo    upd_done                ; diff < off -> not yet
+        brlo    pin_done                ; diff < off -> not yet
         ; --- turn ON ---
         ldi     r16, HIGH
         std     Y+STATE, r16            ; state = HIGH
@@ -321,7 +345,7 @@ state_is_low:
         ldd   char_24, Y+TASK_NO
         rcall char_write
 
-upd_done:
+pin_done:
 
         pop     temp_17
         pop     r29
@@ -344,20 +368,32 @@ get_block:
         adc     r29, Z_31_hi            ; Y now contains task pointer
         ret
 
+ser_out:
+        delay_16 100
+        ret
+
+btn_in:
+        delay_16 100
+        ret
+
+ser_in:
+        delay_16 100
+        ret
+
 task0:
         .equ    t0, 0
         ldi     r24, t0
         mov     out_5, r24
 
         rcall   get_block
-        rcall   update        
+        rcall   ser_in        
         ret
 task1:
         .equ    t1, 1
         ldi     r24, t1
         mov     out_5, r24
         rcall   get_block        
-        rcall   update
+        rcall   ser_out
         ret
 
 task2:
@@ -365,7 +401,31 @@ task2:
         ldi     r24, t2
         mov     out_5, r24
         rcall   get_block        
-        rcall   update
+        rcall   btn_in
+        ret
+
+task3:
+        .equ    t3, 3
+        ldi     r24, t3
+        mov     out_5, r24
+
+        rcall   get_block
+        rcall   pin_out        
+        ret
+task4:
+        .equ    t4, 4
+        ldi     r24, t4
+        mov     out_5, r24
+        rcall   get_block        
+        rcall   pin_out
+        ret
+
+task5:
+        .equ    t5, 5  
+        ldi     r24, t5
+        mov     out_5, r24
+        rcall   get_block        
+        rcall   pin_out
         ret
 
 ; ---- The table: each entry is the WORD address of a task ----
@@ -376,6 +436,9 @@ task2:
 
         .balign 2
 jump_table:
+        .word   pm(task5)
+        .word   pm(task4)
+        .word   pm(task3)
         .word   pm(task2)
         .word   pm(task1)
         .word   pm(task0)
