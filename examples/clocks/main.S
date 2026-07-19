@@ -1,6 +1,6 @@
 ; =============================================================
-; main  –  Toggle LED(PF5) to demonstrate clock freq change
-;          Best measured with a scope
+; main  –  Demonstrate changing clock frequency and 
+;          blink on-board LED at 100 clock cycles.
 ; Target : AVR64DD32 @ 4 MHz (default) 100 cycles => 25us
 ; Board  : AVR64DD32 Curiosity Nano
 ; =============================================================
