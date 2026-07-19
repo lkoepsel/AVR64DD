@@ -41,3 +41,7 @@ along with these task execution times:
 
 ## Summary
 The execution order appears correct, as the tasks are being executed 4-5-3-2-6-1-7. The tasks time or ISR time-slicing isn't quite appropriate as several times as task such as task1, isn't represented in the table. By increasing time_0, to 0x0100 from 0x00A0, task1 is represented consistently. Thus its important to ensure the sampling rate by the ISR is sufficient to record all tasks occuring.
+
+![image using logic](./tasks_logic.png)
+
+![image using DAC ladder](./tasks_dac.png)
