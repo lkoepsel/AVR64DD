@@ -32,8 +32,8 @@
 #define WGM_SINGLESLOPE  (0x3 << TCA_SINGLE_WGMODE_gp)  // CTRLB: single-slope PWM
 
 ; ---------- PWM parameters ----------
-.equ    PER_TOP, 255                    ; TOP -> 256 steps, 15.625 kHz @ 4 MHz
-.equ    DC, 127                         ; duty cycle (%)
+.equ    PER_TOP, 0xfffe                    ; TOP -> 256 steps, 15.625 kHz @ 4 MHz
+.equ    DC, 50                             ; duty cycle (% = DC/PER_TOP)
 .equ    CMP_VAL, (DC * (PER_TOP + 1)) / 100   ; compare value for the duty cycle
 
 ; -------------------- Interrupt vector table --------------------

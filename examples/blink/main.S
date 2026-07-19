@@ -8,7 +8,9 @@
 #include "registers.S"
 
 ; -------------------- Interrupt vector table --------------------
-; No interrupts are enabled, only vector 0/RESET can be taken
+; Section, "vectors" containing allocatable, executable code, "ax",
+; @type, progbits (default), section contains data to be written
+; As no interrupts enabled, only vector 0/RESET is required
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
@@ -18,7 +20,7 @@ __vectors:
 
 .type   reset_handler, @function
 reset_handler:                      ; serves as main_setup
-    sbi     VPF_DIR, LED            ; PF5 as output
+    sbi     VPF_DIR, LED            ; set PF5 as output
 
 main_loop:
     sbi     VPF_IN, LED             ; toggle PF5
