@@ -86,6 +86,7 @@ dispatch:
 ; ---- Tasks ----
 task0:
         ldi     task_21, 0x00
+        mov     out_5, task_21
         out     VPA_OUT, out_5
         delay_16 time_0
         ret
@@ -105,7 +106,7 @@ task2:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0 *2
+        delay_16 time_0
         ret
 
 task3:
@@ -114,7 +115,7 @@ task3:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0 *2
+        delay_16 time_0
         ret
 
 task4:
@@ -123,7 +124,7 @@ task4:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0 * 4
+        delay_16 time_0
         ret
 
 task5:
@@ -132,7 +133,7 @@ task5:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0 *4
+        delay_16 time_0
         ret
 
 task6:
@@ -141,7 +142,7 @@ task6:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0 * 2
+        delay_16 time_0
         ret
 
 task7:
