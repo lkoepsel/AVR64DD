@@ -1,6 +1,7 @@
 ; =============================================================
 ; echo  –  example serial program, echo's serial input
 ; to confirm working, ensure local echo is off in serial program
+; NOTE: Serial communications requires 4MHz clock
 ; Target : AVR64DD32 (4MHz default clock)
 ; Toolchain: avr-gcc  (GNU AVR toolchain)
 ; =============================================================
@@ -57,7 +58,7 @@ reset_handler:
 ; main – application logic starts here
 ; --------------------------------------------------------------------
 main_setup:
-    rcall   set_4M
+    rcall   set_4M              ; serial comms requires 4M clock
     rcall   init_serial
 
     ; prompt to show terminal is live
