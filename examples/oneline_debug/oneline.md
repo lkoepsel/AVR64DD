@@ -1,58 +1,43 @@
-On AVR ucontrollers, `ICALL` calls the routine whose word-address is in the Z register (`r31:r30`). Because Flash addressing on AVR uses word addresses for indirect calls but `LPM` reads bytes, a jump table built in Flash must account for that.
+# oneline_debug
+Fundamentally the same program as **oneline**, however, uses an interrupt to write which task is operating. This allows one to debug the sequence and execution time of each task.
 
-Working example: a jump table of routines, indexed at runtime.
+In order to view the task execution time, view the `tasks` memory in the debugger. It will appear something like this:
 
 ```asm
-initialization code
-...
-jump:
-        ; Z = jump_table + (index * 1 word)
-        ldi     ZL, lo8(jump_table)
-        ldi     ZH, hi8(jump_table)
-        ; add index*2 BYTES to the byte pointer used by LPM...
-        lsl     r24                       ; index * 2 (each entry is 1 word = 2 bytes)
-        add     ZL, r24
-        adc     ZH, r1                    ; r1 assumed 0; clr it if unsure
-
-        ; Load the routine's WORD address stored in the table
-        lpm     r30, Z+                   ; low byte
-        lpm     r31, Z                    ; high byte
-        ; Z now holds the word-address of the target routine
-        icall                             ; push PC, jump to (Z)
-
-        rjmp    jump_done
-
-jump_done:
-        rjmp    jump_done
-
-; ---- The routines ----
-routine0:
-        ldi     r16, 0x01
-        out     _SFR_IO_ADDR(PORTB), r16
-        ret
-
-routine1:
-        ldi     r16, 0x02
-        out     _SFR_IO_ADDR(PORTB), r16
-        ret
-
-routine2:
-        ldi     r16, 0x04
-        out     _SFR_IO_ADDR(PORTB), r16
-        ret
-
-; ---- The table: each entry is the WORD address of a routine ----
-        .balign 2
-jump_table:
-        .word   pm(routine0)
-        .word   pm(routine1)
-        .word   pm(routine2)
+─── AVR SRAM 
+tasks  0x6000..0x607F
+  0x6000  04 05 05 05 05 03 02 02 06 06 01 00 04 04 04 04  ................
+  0x6010  05 05 05 03 03 02 06 06 01 07 04 04 04 04 05 05  ................
+  0x6020  05 03 03 02 06 06 01 07 00 04 04 04 05 05 05 03  ................
+  0x6030  03 02 02 06 01 07 00 04 04 04 05 05 05 05 03 02  ................
+  0x6040  02 06 06 07 00 04 04 04 04 05 05 05 03 03 02 06  ................
+  0x6050  06 01 07 04 04 04 04 05 05 05 03 03 02 06 06 01  ................
+  0x6060  07 00 04 04 04 05 05 05 03 03 02 02 06 01 07 00  ................
+  0x6070  04 04 04 05 05 05 03 03 02 02 06 01 07 00 04 04  ................
 ```
 
-The key points for your students:
+The table used to drive this execution is:
 
-`ICALL` uses Z as a *word* address (the Program Counter is word-granular on AVR), while `LPM` reads *bytes* from Flash. That mismatch is the classic source of bugs. The table stores word addresses via `pm(label)` (the avr-gcc/binutils operator that divides a byte address by 2). To fetch the Nth entry with `LPM`, you scale the index by 2 because each `.word` entry occupies 2 bytes in Flash, but the *value* you load is already a word address ready for `ICALL`.
+```asm
+jump_table:
+        .word   pm(task7)
+        .word   pm(task1)
+        .word   pm(task6)
+        .word   pm(task2)
+        .word   pm(task3)
+        .word   pm(task5)
+        .word   pm(task4)
+        .word   pm(task0)
+jump_table_end:
+```
 
-Contrast with `ICALL` vs `CALL`/`RCALL`: the latter two encode a fixed destination at assembly time, so they can't be data-driven. `ICALL` is how you get a C-style function-pointer table or a `switch` jump table in assembly. The cost is 3 cycles on the AVR uC and one extra word of return address on the RAM stack — worth flagging if there are constraints.
+along with these task execution times:
 
-One caution worth giving students: `r1` is the conventional "zero register" under the avr-gcc ABI, but in `-nostdlib` hand-written code nothing guarantees it's zero. If you didn't `clr r1` at startup, use `clr` on a scratch register for the `adc` instead.
+| time | tasks |
+| ---: | ----: |
+| time_0 | 0, 1, 7 |
+| time_0 * 2 | 2, 3, 6 |
+| time_0 * 4| 4, 5 |
+
+## Summary
+The execution order appears correct, as the tasks are being executed 4-5-3-2-6-1-7. The tasks time or ISR time-slicing isn't quite appropriate as several times as task such as task1, isn't represented in the table. By increasing time_0, to 0x0100 from 0x00A0, task1 is represented consistently. Thus its important to ensure the sampling rate by the ISR is sufficient to record all tasks occuring.

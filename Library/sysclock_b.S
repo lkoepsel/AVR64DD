@@ -76,7 +76,6 @@ init_sysclock_100u:
     ;     #define TCB_ENABLE_bm  0x01  /* Enable bit mask. */
     ldi   temp_16, (0 << 1) | (1 << 0)
     sts   TCB0_CTRLA, temp_16
-    ; sei
     ret
 
 ; --------------------------------------------------------------------
@@ -92,7 +91,7 @@ TCB0_INT_handler:
     sts   TCB0_INTFLAGS, temp_17
     pop   temp_17                   ; restore r17 before returning to mainline
 
-    st    X+, out_5               ; on interrupt, save task to buffer
+    st    X+, task_21               ; on interrupt, save task to buffer
     
     ; ring buffer, if at end, reload
     cpi   tasks_26, lo8(tasks + tasks_size)

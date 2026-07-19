@@ -4,6 +4,7 @@
 ; Use to watch which tasks are executed and for how long
 
 #include <avr/io.h>
+#include "clocks.S"
 #include "registers.S"
 #include "sysclock_b.S"
 
@@ -41,7 +42,7 @@ __vectors:
 ; ---------- Reserved registers ----------
 ; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
 
-.equ    time_0, 0x00A0
+.equ    time_0, 0x0100
 
         .section .text
         .global  main
@@ -52,13 +53,14 @@ reset_handler:
         out     STATUS, r1
 
         ldi     temp_16, 0x1c
-        out     VPA_DIR, temp_16   ; PA2-4 outputs
-
-        rcall   init_sysclock_100u ; setup ISR to track tasks running
+        out     VPA_DIR, temp_16        ; PA2-4 outputs
+        rcall   set_16M
+        rcall   init_sysclock_100u      ; setup ISR to track tasks running
+        sei                             ; enable interrupts
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
-        ldi     temp_16, NUM_TASKS - 1          ; index of last entry (count auto-computed)
-        mov     index_4, temp_16            ; r4 = saved index, survives icall
+        ldi     temp_16, NUM_TASKS - 1  ; index of last entry (count auto-computed)
+        mov     index_4, temp_16        ; r4 = saved index, survives icall
 dispatch:
         ; Z = jump_table + (index * 1 word)
         mov     temp_16, index_4        ; working copy of the index
@@ -85,7 +87,7 @@ dispatch:
 task0:
         ldi     task_21, 0x00
         out     VPA_OUT, out_5
-        delay_16 time_0 * 4
+        delay_16 time_0
         ret
 
 task1:
@@ -103,7 +105,7 @@ task2:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0
+        delay_16 time_0 *2
         ret
 
 task3:
@@ -112,7 +114,7 @@ task3:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0
+        delay_16 time_0 *2
         ret
 
 task4:
@@ -121,7 +123,7 @@ task4:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0 * 8
+        delay_16 time_0 * 4
         ret
 
 task5:
@@ -130,7 +132,7 @@ task5:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0
+        delay_16 time_0 *4
         ret
 
 task6:
@@ -139,7 +141,7 @@ task6:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0
+        delay_16 time_0 * 2
         ret
 
 task7:
@@ -148,7 +150,7 @@ task7:
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
-        delay_16 time_0 *16
+        delay_16 time_0
         ret
 
 ; ---- The table: each entry is the WORD address of a task ----
@@ -160,12 +162,12 @@ task7:
         .balign 2
 jump_table:
         .word   pm(task7)
+        .word   pm(task1)
         .word   pm(task6)
+        .word   pm(task2)
+        .word   pm(task3)
         .word   pm(task5)
         .word   pm(task4)
-        .word   pm(task3)
-        .word   pm(task2)
-        .word   pm(task1)
         .word   pm(task0)
 jump_table_end:
 

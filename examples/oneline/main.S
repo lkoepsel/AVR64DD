@@ -33,7 +33,6 @@ reset_handler:
         ldi     temp_16, 0x1c
         out     VPA_DIR, temp_16   ; PA2-4 outputs
 
-        rcall   set_8M                  ; optional, change system clock, see library/clocks
 reload:
         ; ---- Start at the last table entry and dispatch down to 0 ----
         ldi     temp_16, NUM_TASKS - 1  ; index of last entry (count auto-computed)
