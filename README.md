@@ -1,16 +1,31 @@
 # Developing C and Assembly Language Code Using the AVR64DD 
 
 Notes as to developing C and assembly code for the Microchip AVR64DD. 
-![AVR64DD32_Curiosity_Nano](./AVR64DD32_Curiosity_Nano.pdf)
+![AVR64DD32_Curiosity_Nano](./documentation/AVR64DD32_Curiosity_Nano.png)
 
 ## Introduction
-This repository provides example programs in [*AVR assembly language*](https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf) for the Microchip **AVR64DD32**, targeting the [*AVR64DD32 Curiosity Nano*](./documentation/AVR64DD32CNANO-Prel-HW-UserGuide-DS50003323.pdf) evaluation board. The same examples apply to the closely related **AVR64DD28** with a one-line change in *env.make*. To use this framework you need a recent *GNU AVR* toolchain (*avr-gcc* / *avr-libc*) new enough to know the AVR-Dx parts; current packages on *Linux*, *macOS*, and *Windows* include them, so no separate device pack is required.
+This repository provides examples in [*AVR assembly language*](https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf) for the Microchip **AVR64DD32**, targeting the [*AVR64DD32 Curiosity Nano*](./documentation/AVR64DD32CNANO-Prel-HW-UserGuide-DS50003323.pdf) evaluation board. The same examples apply to the closely related **AVR64DD28** with a one-line change in *env.make*. To use this framework you need a recent *GNU AVR* toolchain (*avr-gcc* / *avr-libc*) new enough to know the AVR-Dx parts; current packages on *Linux*, *macOS*, and *Windows* include them, so no separate device pack is required.
 
 Example programs live under [**examples**](./AVR64DD_examples). Each subfolder is an *assembly language* example, with a *main.S* file. A `Makefile` builds an executable with standard *make* targets (`make`, `make flash`, `make size`, …) work in every example folder.
 
 The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = pkobn_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
 For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end.
+
+This terminal-based approach can be information-rich as it is customizable to the specific registers being used. Very nice output, for example:
+```
+── Source ──────────────────────────────────────────
+   (main.S, current line highlighted)
+── Assembly ────────────────────────────────────────
+   (disassembly centered on PC, AVR byte addresses)
+── AVR Registers ───────────────────────────────────
+r18=0x15  r19=0xFA  r20=0x3B
+SREG = 0x00  [ i t h s v n z c ]      (UPPER=set, lower=clear)
+SP   = 0x7FFF
+PC   = 0x0014
+```
+
+
 
 ## Local Documentation (in the repo folder [documentation](./documentation))
 
