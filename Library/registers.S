@@ -34,8 +34,8 @@
 #define temp_11     r11     // temp registers, sysclock, oneline_mt
 #define char_12     r12
 #define char_13     r13
-; free              r14
-; free              r15
+#define capt_14     r14     // dedicated: TCB0 CAPT clear mask
+#define task_15     r15     // used to save the current task running
 #define temp_16     r16
 #define temp_17     r17
 #define delay_18    r18     // used for macros delay_8, delay_16

@@ -69,6 +69,7 @@ init_sysclock_100u:
 
     ; --- enable CAPT interrupt ---
     ldi   temp_16, TCB_CAPT_bm
+    mov   capt_14, temp_16          ; r14 dedicated: TCB0 CAPT clear mask
     sts   TCB0_INTCTRL, temp_16
 
     ; --- clock = CLK_PER (no div), enable timer ---
@@ -84,25 +85,18 @@ init_sysclock_100u:
 .global __vector_14                
 __vector_14:
 TCB0_INT_handler:
-    in    ISR_3, SREG               ; save flags in dedicated low reg
-    push  temp_17                   ; ISR must preserve mainline scratch (r17)
-
-    ldi   temp_17, TCB_CAPT_bm      ; clear CAPT by writing 1
-    sts   TCB0_INTFLAGS, temp_17
-    pop   temp_17                   ; restore r17 before returning to mainline
-
-    st    X+, task_21               ; on interrupt, save task to buffer
-    
-    ; ring buffer, if at end, reload
-    cpi   tasks_26, lo8(tasks + tasks_size)
-    brne  lt_buf                    ; less than buffer size
-    ldi   tasks_26, lo8(tasks)      ; end of buffer, reload
-
- lt_buf:   
-    out   SREG, ISR_3               ; restore flags
-    reti
+        in    ISR_3, SREG              ; 1  save flags
+        sts   TCB0_INTFLAGS, capt_14    ; 2  clear CAPT (mask pre-loaded at init)
+        st    X+, task_15              ; 1  save running task to buffer
+        cpi   tasks_26, lo8(tasks + tasks_size)  ; 1
+        brne  lt_buf                   ; 1/2
+        ldi   tasks_26, lo8(tasks)     ; 1
+lt_buf:
+        out   SREG, ISR_3              ; 1
+        reti                           ; 4
 
 ; ====================================================================
+
 ;  DATA SECTION  (initialized variables in SRAM)
 ; ====================================================================
 .section .data

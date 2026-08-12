@@ -240,36 +240,38 @@ dispatch:
 ;------------------------------------------------------------------------------
 ;  copy_data : Flash (LMA) -> SRAM (VMA)  (hand-rolled __do_copy_data)
 ;    Copies the initialized TASKS[] image into SRAM so the tasks are live.
+;    Uses Y as dest pointer -- X is ISR-owned program-wide, never touched here.
 ;------------------------------------------------------------------------------
 .type   copy_data, @function
 copy_data:
         push    r24
         push    r25
-        push    r26
-        push    r27
+        push    r28                    
+        push    r29
         push    r30
         push    r31
 
-        ldi     tasks_26, lo8(__data_start)        ; X -> SRAM dest
-        ldi     tasks_27, hi8(__data_start)
+        ldi     r28, lo8(__data_start)    ; Y -> SRAM dest
+        ldi     r29, hi8(__data_start)
         ldi     Z_30_lo, lo8(__data_load_start)   ; Z -> Flash src
         ldi     Z_31_hi, hi8(__data_load_start)
 copy_loop:
-        cpi     tasks_26, lo8(__data_end)
+        cpi     r28, lo8(__data_end)
         ldi     r25, hi8(__data_end)
-        cpc     tasks_27, r25
+        cpc     r29, r25
         breq    copy_done
         lpm     r24, Z+
-        st      X+,  r24
+        st      Y+, r24
         rjmp    copy_loop
 copy_done:
         pop     r31
         pop     r30
-        pop     r27
-        pop     r26
+        pop     r29
+        pop     r28
+        pop     r25                       
         pop     r24
-        pop     r25
         ret
+        
 ;------------------------------------------------------------------------------
 ;  pin_out(uint8_t TASKID)   TASKID in r24
 ;------------------------------------------------------------------------------
@@ -383,6 +385,7 @@ ser_in:
 task0:
         .equ    t0, 0
         ldi     r24, t0
+        mov     task_15, r24
         mov     out_5, r24
 
         rcall   get_block
@@ -391,6 +394,7 @@ task0:
 task1:
         .equ    t1, 1
         ldi     r24, t1
+        mov     task_15, r24
         mov     out_5, r24
         rcall   get_block        
         rcall   ser_out
@@ -399,6 +403,7 @@ task1:
 task2:
         .equ    t2, 2  
         ldi     r24, t2
+        mov     task_15, r24
         mov     out_5, r24
         rcall   get_block        
         rcall   btn_in
@@ -407,6 +412,7 @@ task2:
 task3:
         .equ    t3, 3
         ldi     r24, t3
+        mov     task_15, r24
         mov     out_5, r24
 
         rcall   get_block
@@ -415,6 +421,7 @@ task3:
 task4:
         .equ    t4, 4
         ldi     r24, t4
+        mov     task_15, r24
         mov     out_5, r24
         rcall   get_block        
         rcall   pin_out
@@ -423,6 +430,7 @@ task4:
 task5:
         .equ    t5, 5  
         ldi     r24, t5
+        mov     task_15, r24
         mov     out_5, r24
         rcall   get_block        
         rcall   pin_out
