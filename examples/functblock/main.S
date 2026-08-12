@@ -117,7 +117,7 @@ TASKS:
         .word   DEFAULT_OFF             ; OFF_TIME = 100
         .word   0                       ; ELAPSED
         .byte   0xFF                    ; SPARE
-        .byte   0x30                    ; TASK_NO
+        .byte   'I'                     ; TASK_NO
         ; --- task 1 ---
         .byte   0
         .byte   LOW
@@ -125,7 +125,7 @@ TASKS:
         .word   DEFAULT_OFF << 1        ; 200
         .word   0
         .byte   0xFF                    ; SPARE
-        .byte   0x31                    ; TASK_NO
+        .byte   'O'                    ; TASK_NO
         ; --- task 2 ---
         .byte   0
         .byte   LOW
@@ -133,7 +133,7 @@ TASKS:
         .word   DEFAULT_OFF << 2        ; 400
         .word   0
         .byte   0xFF                    ; SPARE
-        .byte   0x32                    ; TASK_NO
+        .byte   'B'                     ; TASK_NO
         ; --- task 3 ---
         .byte   2                       ; PIN
         .byte   LOW                     ; STATE
@@ -371,68 +371,78 @@ get_block:
         ret
 
 ser_out:
-        delay_16 100
+        delay_16 255
         ret
 
 btn_in:
-        delay_16 100
+        delay_16 511
         ret
 
 ser_in:
-        delay_16 100
+        delay_16 128
         ret
 
 task0:
         .equ    t0, 0
         ldi     r24, t0
-        mov     task_15, r24
-        mov     out_5, r24
-
         rcall   get_block
+        mov     out_5, r24
+        ldd     r24, Y+TASK_NO
+        mov     task_15, r24
+
         rcall   ser_in        
         ret
 task1:
         .equ    t1, 1
         ldi     r24, t1
-        mov     task_15, r24
+        rcall   get_block
         mov     out_5, r24
-        rcall   get_block        
+        ldd     r24, Y+TASK_NO
+        mov     task_15, r24
+
         rcall   ser_out
         ret
 
 task2:
         .equ    t2, 2  
         ldi     r24, t2
-        mov     task_15, r24
+        rcall   get_block
         mov     out_5, r24
-        rcall   get_block        
+        ldd     r24, Y+TASK_NO
+        mov     task_15, r24
+
         rcall   btn_in
         ret
 
 task3:
         .equ    t3, 3
         ldi     r24, t3
-        mov     task_15, r24
-        mov     out_5, r24
-
         rcall   get_block
+        mov     out_5, r24
+        ldd     r24, Y+TASK_NO
+        mov     task_15, r24
+
         rcall   pin_out        
         ret
 task4:
         .equ    t4, 4
         ldi     r24, t4
-        mov     task_15, r24
+        rcall   get_block
         mov     out_5, r24
-        rcall   get_block        
+        ldd     r24, Y+TASK_NO
+        mov     task_15, r24
+
         rcall   pin_out
         ret
 
 task5:
         .equ    t5, 5  
         ldi     r24, t5
-        mov     task_15, r24
+        rcall   get_block
         mov     out_5, r24
-        rcall   get_block        
+        ldd     r24, Y+TASK_NO
+        mov     task_15, r24
+
         rcall   pin_out
         ret
 
