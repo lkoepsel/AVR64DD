@@ -117,7 +117,7 @@ TASKS:
         .word   DEFAULT_OFF             ; OFF_TIME = 100
         .word   0                       ; ELAPSED
         .byte   0xFF                    ; SPARE
-        .byte   'I'                     ; TASK_NO
+        .byte   'E'                     ; TASK_NO
         ; --- task 1 ---
         .byte   0
         .byte   LOW
@@ -371,15 +371,21 @@ get_block:
         ret
 
 ser_out:
-        delay_16 100
+
+        rcall   char_write          
         ret
 
 btn_in:
         delay_16 100
         ret
 
-ser_in:
-        delay_16 100
+echo:
+        rcall   char_available
+        cpi     char_24, 0
+        breq    no_char             ; nothing buffered -> go do other work
+        rcall   char_read           ; buffered, so this returns immediately
+        rcall   char_write          ; echo char in buffer back out
+no_char:
         ret
 
 task0:
@@ -390,7 +396,7 @@ task0:
         ldd     r24, Y+TASK_NO
         mov     task_15, r24
 
-        rcall   ser_in        
+        rcall   echo        
         ret
 task1:
         .equ    t1, 1
