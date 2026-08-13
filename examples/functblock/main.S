@@ -371,15 +371,15 @@ get_block:
         ret
 
 ser_out:
-        delay_16 255
+        delay_16 100
         ret
 
 btn_in:
-        delay_16 511
+        delay_16 100
         ret
 
 ser_in:
-        delay_16 128
+        delay_16 100
         ret
 
 task0:
