@@ -28,14 +28,15 @@
 #include <avr/io.h>
 #include "clocks.S"
 #include "io.S"
+#include "registers.S"
 #include "sysclock.S"
 #include "sysclock_b.S"
-#include "serial.S"
+#include "serial_ISR.S"
 
 ;------------------------------------------------------------------------------
 ;  Constants
 ;------------------------------------------------------------------------------
-        .equ    MAX_TASKS, 6
+        .equ    MAX_TASKS,    6
         .equ    DEFAULT_ON,   100
         .equ    DEFAULT_OFF,  100
 
@@ -64,7 +65,7 @@
 ;
 ;  update() scratch (caller-saved r18..r27, r30..r31):
 ;    r24:r25  : now = ticks()  ; also pin arg / field temporaries
-;    r22:r23  : threshold (on or off) and digitalWrite level arg
+;    r12:r13  : threshold (on or off) and digitalWrite level arg
 ;    r20:r21  : (now - elapsed) difference
 ;    r18      : state temp
 ;==============================================================================
@@ -73,25 +74,7 @@
 ;  SECTION 1 : Vectors
 ;==============================================================================
 
-        .section .vectors, "ax", @progbits
-        .global  __vectors
-__vectors:
-.section .vectors, "ax", @progbits
-    jmp     _start              ; 0x000  vector 0  RESET
-    jmp     bad_interrupt       ; 0x004  vector 1  NMI
-    jmp     bad_interrupt       ; 0x008  vector 2  BOD_VLM
-    jmp     bad_interrupt       ; 0x00C  vector 3  CLKCTRL
-    jmp     bad_interrupt       ; 0x010  vector 4  MVIO_MVIO
-    jmp     bad_interrupt       ; 0x014  vector 5  RTC_CNT
-    jmp     bad_interrupt       ; 0x018  vector 6  RTC_PIT
-    jmp     bad_interrupt       ; 0x01C  vector 7  CCL_CCL
-    jmp     bad_interrupt       ; 0x020  vector 8  PORTA_PORT
-    jmp     TCA0_OVF_handler    ; 0x024  vector 9  TCA0_OVF
-    jmp     bad_interrupt       ; 0x028  vector 10 TCA0_HUNF
-    jmp     bad_interrupt       ; 0x02C  vector 11 TCA0_CMP0
-    jmp     bad_interrupt       ; 0x030  vector 12 TCA0_CMP1
-    jmp     bad_interrupt       ; 0x034  vector 13 TCA0_CMP2
-    jmp     TCB0_INT_handler    ; 0x038  vector 14 TCB0_INT 
+.include "vectors.inc"
 
 ;==============================================================================
 ;  SECTION 2 : Data
@@ -191,7 +174,8 @@ main:
 
         rcall   init_sysclock_1k        ; start the 100 millisecond/6 tick
         rcall   init_sysclock_100u      ; setup ISR to track tasks running
-        rcall   init_serial             ; setup serial console
+        rcall   set_4M                  ; serial comms requires 4M clock
+        rcall   init_serial
 
         sei
         rjmp   sched_loop               ; go to scheduler and do not return
@@ -251,13 +235,13 @@ copy_data:
         push    r30
         push    r31
 
-        ldi     r28, lo8(__data_start)    ; Y -> SRAM dest
-        ldi     r29, hi8(__data_start)
+        ldi     r28, lo8(task_blocks)    ; Y -> SRAM dest
+        ldi     r29, hi8(task_blocks)
         ldi     Z_30_lo, lo8(__data_load_start)   ; Z -> Flash src
         ldi     Z_31_hi, hi8(__data_load_start)
 copy_loop:
-        cpi     r28, lo8(__data_end)
-        ldi     r25, hi8(__data_end)
+        cpi     r28, lo8(task_blocks_end)
+        ldi     r25, hi8(task_blocks_end)
         cpc     r29, r25
         breq    copy_done
         lpm     r24, Z+
@@ -311,11 +295,11 @@ pin_out:
 
 ;--- state == HIGH : expire after ON_TIME -------------------------------------
 state_is_high:
-        ldd     r22, Y+ON_TIME          ; threshold low
-        ldd     r23, Y+ON_TIME+1        ; threshold high
+        ldd     temp_12, Y+ON_TIME          ; threshold low
+        ldd     temp_13, Y+ON_TIME+1        ; threshold high
         ; if (diff >= on)  i.e. NOT (diff < on)
-        cp      r18, r22
-        cpc     r19, r23
+        cp      r18, temp_12
+        cpc     r19, temp_13
         brlo    pin_done                ; diff < on -> not yet
         ; --- turn OFF ---
         ldi     r16, LOW
@@ -331,10 +315,10 @@ state_is_high:
 
 ;--- state == LOW : expire after OFF_TIME ---
 state_is_low:
-        ldd     r22, Y+OFF_TIME         ; threshold low
-        ldd     r23, Y+OFF_TIME+1       ; threshold high
-        cp      r18, r22
-        cpc     r19, r23
+        ldd     temp_12, Y+OFF_TIME         ; threshold low
+        ldd     temp_13, Y+OFF_TIME+1       ; threshold high
+        cp      r18, temp_12
+        cpc     r19, temp_13
         brlo    pin_done                ; diff < off -> not yet
         ; --- turn ON ---
         ldi     r16, HIGH
@@ -356,11 +340,11 @@ pin_done:
 
 ;----- get task block ---------------------------------------------------------
         ;----- Y = TASKS + TASKID * SIZE --------------------------------------
-        ; use mul to determine index-> index (r24) * SIZE r17 = r0:r1
+        ; use mul to determine index-> index (temp_22) * SIZE r17 = r0:r1
 get_block:
         ;----- get next task block for execution ------------------------------
         ldi     temp_17, SIZE
-        mul     r24, temp_17
+        mul     temp_22, temp_17
         movw    Z_30_lo, r0             ; r30:r31 nth taskblock
         eor     r1,r1                   ; set r1 back to 0
 
@@ -390,64 +374,64 @@ no_char:
 
 task0:
         .equ    t0, 0
-        ldi     r24, t0
+        ldi     temp_22, t0
         rcall   get_block
-        mov     out_5, r24
-        ldd     r24, Y+TASK_NO
-        mov     task_15, r24
+        mov     out_5, temp_22
+        ldd     task_15, Y+TASK_NO
+        ; mov     task_15, temp_22
 
         rcall   echo        
         ret
 task1:
         .equ    t1, 1
-        ldi     r24, t1
+        ldi     temp_22, t1
         rcall   get_block
-        mov     out_5, r24
-        ldd     r24, Y+TASK_NO
-        mov     task_15, r24
+        mov     out_5, temp_22
+        ldd     task_15, Y+TASK_NO
+        ; mov     task_15, temp_22
 
         rcall   ser_out
         ret
 
 task2:
         .equ    t2, 2  
-        ldi     r24, t2
+        ldi     temp_22, t2
         rcall   get_block
-        mov     out_5, r24
-        ldd     r24, Y+TASK_NO
-        mov     task_15, r24
+        mov     out_5, temp_22
+        ldd     task_15, Y+TASK_NO
+        ; mov     task_15, temp_22
 
         rcall   btn_in
         ret
 
 task3:
         .equ    t3, 3
-        ldi     r24, t3
+        ldi     temp_22, t3
         rcall   get_block
-        mov     out_5, r24
-        ldd     r24, Y+TASK_NO
-        mov     task_15, r24
+        mov     out_5, temp_22
+        ldd     task_15, Y+TASK_NO
+        ; mov     task_15, temp_22
 
         rcall   pin_out        
         ret
 task4:
         .equ    t4, 4
-        ldi     r24, t4
+        ldi     temp_22, t4
         rcall   get_block
-        mov     out_5, r24
-        ldd     r24, Y+TASK_NO
-        mov     task_15, r24
+        mov     out_5, temp_22
+        ldd     task_15, Y+TASK_NO
+        ; mov     task_15, temp_22
 
         rcall   pin_out
         ret
 
 task5:
         .equ    t5, 5  
-        ldi     r24, t5
+        ldi     temp_22, t5
         rcall   get_block
-        mov     out_5, r24
-        ldd     r24, Y+TASK_NO
-        mov     task_15, r24
+        mov     out_5, temp_22
+        ldd     task_15, Y+TASK_NO
+        ; mov     task_15, temp_22
 
         rcall   pin_out
         ret
@@ -471,3 +455,14 @@ jump_table_end:
 ;==============================================================================
 ;  End of functblock.S
 ;==============================================================================
+
+; ====================================================================
+;  DATA / BSS
+; ====================================================================
+.section .data
+
+.section .bss
+
+; task_blocks
+task_blocks:     .skip   MAX_TASKS * SIZE     ; space reserved for the task blocks
+task_blocks_end:

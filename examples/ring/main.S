@@ -22,7 +22,7 @@
 #include "registers.S"
 #include "serial_ISR.S"
 
-.include "vectors_dd32.inc"
+.include "vectors.inc"
 
 ; ====================================================================
 ;  TEXT CONSTANTS SECTION  (Constants for printing lives here)
@@ -44,7 +44,7 @@ prompt: .asciz  "DD:"
 ; --------------------------------------------------------------------
 ; reset_handler – entry point after RESET
 ; --------------------------------------------------------------------
-reset_handler:
+_start:
 
     ; r1 = 0 by convention (zero register); clear status flags
     eor     r1, r1
