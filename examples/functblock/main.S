@@ -91,8 +91,8 @@
 ;==============================================================================
 
         .section .data
-        .global  TASKS
-TASKS:
+        .global  TASKS_PMEM
+TASKS_PMEM:
         ; --- task 0 ---
         .byte   0                       ; PIN
         .byte   LOW                     ; STATE
@@ -143,7 +143,7 @@ TASKS:
         .byte   0x35                    ; TASK_NO
 
         ; Guard: array must be exactly MAX_TASKS * SIZE bytes.
-        .if     (. - TASKS) != (MAX_TASKS * SIZE)
+        .if     (. - TASKS_PMEM) != (MAX_TASKS * SIZE)
         .error  "TASKS array size mismatch"
         .endif
 
@@ -223,7 +223,7 @@ dispatch:
 
 ;------------------------------------------------------------------------------
 ;  copy_data : Flash (LMA) -> SRAM (VMA)  (hand-rolled __do_copy_data)
-;    Copies the initialized TASKS[] image into SRAM so the tasks are live.
+;    Copies the initialized TASKS_PMEM[] image into SRAM so the tasks are live.
 ;    Uses Y as dest pointer -- X is ISR-owned program-wide, never touched here.
 ;------------------------------------------------------------------------------
 .type   copy_data, @function
@@ -235,13 +235,13 @@ copy_data:
         push    r30
         push    r31
 
-        ldi     r28, lo8(task_blocks)    ; Y -> SRAM dest
-        ldi     r29, hi8(task_blocks)
+        ldi     r28, lo8(TASK_BLOCKS)    ; Y -> SRAM dest
+        ldi     r29, hi8(TASK_BLOCKS)
         ldi     Z_30_lo, lo8(__data_load_start)   ; Z -> Flash src
         ldi     Z_31_hi, hi8(__data_load_start)
 copy_loop:
-        cpi     r28, lo8(task_blocks_end)
-        ldi     r25, hi8(task_blocks_end)
+        cpi     r28, lo8(TASK_BLOCKS_END)
+        ldi     r25, hi8(TASK_BLOCKS_END)
         cpc     r29, r25
         breq    copy_done
         lpm     r24, Z+
@@ -259,7 +259,7 @@ copy_done:
 ;------------------------------------------------------------------------------
 ;  pin_out(uint8_t TASKID)   TASKID in r24
 ;------------------------------------------------------------------------------
-;  Computes Y = TASKS + TASKID*SIZE, then replicates the C logic:
+;  Computes Y = TASKS_PMEM + TASKID*SIZE, then replicates the C logic:
 ;
 ;    now = ticks();
 ;    if (state == HIGH && (now - elapsed) >= on)  { state=LOW;  elapsed=now;
@@ -348,8 +348,8 @@ get_block:
         movw    Z_30_lo, r0             ; r30:r31 nth taskblock
         eor     r1,r1                   ; set r1 back to 0
 
-        ldi     r28, lo8(TASKS)
-        ldi     r29, hi8(TASKS)
+        ldi     r28, lo8(TASKS_PMEM)
+        ldi     r29, hi8(TASKS_PMEM)
         add     r28, Z_30_lo            ; Y = TASKS + nth task offset
         adc     r29, Z_31_hi            ; Y now contains task pointer
         ret
@@ -463,6 +463,6 @@ jump_table_end:
 
 .section .bss
 
-; task_blocks
-task_blocks:     .skip   MAX_TASKS * SIZE     ; space reserved for the task blocks
-task_blocks_end:
+; task_blocks - space in SRAM for each task 
+TASK_BLOCKS:     .skip   MAX_TASKS * SIZE     
+TASK_BLOCKS_END:
