@@ -22,7 +22,7 @@
 #include "registers.S"
 #include "serial_ISR.S"
 
-.include "vectors_dd32.inc"
+#include "vectors.S"
 
 ; ====================================================================
 ;  TEXT CONSTANTS SECTION  (Constants for printing lives here)

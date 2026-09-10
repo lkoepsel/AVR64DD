@@ -30,7 +30,7 @@
 #include "io.S"
 #include "sysclock.S"
 #include "sysclock_b.S"
-#include "serial.S"
+#include "serial_ISR.S"
 
 ;------------------------------------------------------------------------------
 ;  Constants
@@ -92,6 +92,14 @@ __vectors:
     jmp     bad_interrupt       ; 0x030  vector 12 TCA0_CMP1
     jmp     bad_interrupt       ; 0x034  vector 13 TCA0_CMP2
     jmp     TCB0_INT_handler    ; 0x038  vector 14 TCB0_INT 
+    jmp     bad_interrupt       ; 0x03C  vector 15 TCB1_INT
+    jmp     bad_interrupt       ; 0x040  vector 16 TCD0_OVF
+    jmp     bad_interrupt       ; 0x044  vector 17 TCD0_TRIG
+    jmp     bad_interrupt       ; 0x048  vector 18 TWI0_TWIS
+    jmp     bad_interrupt       ; 0x04C  vector 19 TWI0_TWIM
+    jmp     bad_interrupt       ; 0x050  vector 20 SPI0_INT
+    jmp     __vector_21         ; 0x054  vector 21 USART0_RXC  (byte arrived)
+    jmp     __vector_22         ; 0x058  vector 22 USART0_DRE  (ready to send)
 
 ;==============================================================================
 ;  SECTION 2 : Data
