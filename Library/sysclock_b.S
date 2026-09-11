@@ -45,8 +45,8 @@
 .global init_sysclock_100u
 init_sysclock_100u:
     ; --- setup tasks buffer for recording which task is running
-    ldi   tasks_26, lo8(tasks)
-    ldi   tasks_27, hi8(tasks)
+    ldi   tasks_26, lo8(TASKS_EXEC)
+    ldi   tasks_27, hi8(TASKS_EXEC)
 
     ; --- compare value: 399 counts (0..399 = 400 ticks = 100 us) ---
     ldi   temp_16, lo8(ccmp_val)
@@ -88,9 +88,9 @@ TCB0_INT_handler:
         in    ISR_3, SREG              ; 1  save flags
         sts   TCB0_INTFLAGS, capt_14    ; 2  clear CAPT (mask pre-loaded at init)
         st    X+, task_15              ; 1  save running task to buffer
-        cpi   tasks_26, lo8(tasks + tasks_size)  ; 1
+        cpi   tasks_26, lo8(TASKS_EXEC + TASKS_EXEC_SIZE)  ; 1
         brne  lt_buf                   ; 1/2
-        ldi   tasks_26, lo8(tasks)     ; 1
+        ldi   tasks_26, lo8(TASKS_EXEC)     ; 1
 lt_buf:
         out   SREG, ISR_3              ; 1
         reti                           ; 4
@@ -105,10 +105,10 @@ lt_buf:
 ;  BSS SECTION  (zero-initialized / uninitialized variables in SRAM)
 ; ====================================================================
 .section .bss
-    .equ    tasks_size, 0x80
-tasks:
-    .space tasks_size               ; reserve 100 bytes for task storage
+    .equ    TASKS_EXEC_SIZE, 0x80
+TASKS_EXEC:
+    .space TASKS_EXEC_SIZE               ; reserve 0x80 bytes for task execution storage
 
-    .equ    STACK_SIZE, 0x10
-task_stacks:
-    .space NUM_TASKS * STACK_SIZE                       ; reserve STACK_SIZE bytes per task
+    ; .equ    STACK_SIZE, 0x10
+; task_stacks:
+;     .space NUM_TASKS * STACK_SIZE                       ; reserve STACK_SIZE bytes per task

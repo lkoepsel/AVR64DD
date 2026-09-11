@@ -114,8 +114,7 @@
 ;  alternative (overwrite the oldest) loses the start of the line
 ;  instead of the end, which is harder to notice.
 ; --------------------------------------------------------------------
-.global __vector_21
-__vector_21:
+.global USART0_RXC_handler
 USART0_RXC_handler:
     in      ISR_3, CPU_SREG         ; save status flags
     push    temp_16
@@ -161,8 +160,7 @@ USART0_RXC_handler:
 ;  nothing left to write, the only way out is to switch DREIE off. That
 ;  is why char_write has to switch it back on after queueing a byte.
 ; --------------------------------------------------------------------
-.global __vector_22
-__vector_22:
+.global USART0_DRE_handler
 USART0_DRE_handler:
     in      ISR_3, CPU_SREG         ; save status flags
     push    temp_16

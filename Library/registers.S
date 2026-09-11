@@ -32,8 +32,8 @@
 #define ticks_9_hi  r9      // used in sys_clock ISR for ticks
 #define temp_10     r10     // temp registers, sysclock, oneline_mt
 #define temp_11     r11     // temp registers, sysclock, oneline_mt
-#define char_12     r12
-#define char_13     r13
+#define temp_12     r12     // used in functblock for on/off thresholds
+#define temp_13     r13     // used in functblock for on/off thresholds
 #define capt_14     r14     // dedicated: TCB0 CAPT clear mask
 #define task_15     r15     // used to save the current task running
 #define temp_16     r16
@@ -42,8 +42,8 @@
 #define delay_19    r19     // used for macro delay_16
 #define temp_20     r20     // used for ldi commands
 #define task_21     r21     // used to save the current task running
-; free              r22     // 
-; free              r23     // 
+#define temp_22     r22     // TBD
+#define temp_23     r23     // TBD
 #define char_24     r24     // serial: byte to send/receive
 ; free              r25
 #define tasks_26    r26     // X lo, task buffer address pointer
