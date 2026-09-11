@@ -46,6 +46,7 @@ __vectors:
 ; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
 
 .equ    time_0, 0x2000              ; time per task, 4*256*62.5ns = 64us
+.equ    STACK_SIZE, 0x10            ; bytes of task_stacks per task
 
         .section .text
         .global  main
@@ -241,4 +242,6 @@ jump_table_end:
 ;  Declare with:  my_buf: .skip 16
 ; ====================================================================
 .section .bss
+task_stacks:
+    .space  NUM_TASKS * STACK_SIZE      ; reserve STACK_SIZE bytes per task
 

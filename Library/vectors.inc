@@ -3,8 +3,20 @@
 ;
 ;  The table must extend to the highest vector actually used -- the two
 ;  USART0 entries at the bottom are the whole point here. Unused slots
-;  jmp to 0 (a reset) so a stray interrupt is loud rather than silent.
+;  jmp to bad_interrupt so a stray interrupt is loud rather than silent.
+;
+;  Every handler except _start is .weak, so one table serves every
+;  example: a handler the example includes (sysclock.S, serial_ISR.S,
+;  io.S's bad_interrupt) links normally; one it doesn't resolves to 0,
+;  making that slot a jmp to reset. _start is deliberately NOT weak --
+;  a missing entry point must fail to link, not reset-loop silently.
 ; ====================================================================
+.weak   bad_interrupt
+.weak   TCA0_OVF_handler
+.weak   TCB0_INT_handler
+.weak   USART0_RXC_handler
+.weak   USART0_DRE_handler
+
 .section .vectors, "ax", @progbits
     jmp     _start              ; 0x000  vector 0  RESET
     jmp     bad_interrupt       ; 0x004  vector 1  NMI
