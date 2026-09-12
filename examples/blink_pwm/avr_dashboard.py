@@ -1,4 +1,4 @@
-# Per-example gdb-dashboard config for asm_blink_pwm.
+# gdb-dashboard config for asm_blink_pwm:
 # Read by ~/.gdbinit.d/avr_modules.py when avr-gdb starts in this directory,
 # overriding the module defaults. See docs/gdb-dashboard.md.
 #

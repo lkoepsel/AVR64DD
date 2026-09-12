@@ -1,4 +1,4 @@
-# Per-example gdb-dashboard register selection for blink.
+# gdb-dashboard register selection for blink:
 # Read by ~/.gdbinit.d/avr_modules.py when avr-gdb starts in this directory,
 # overriding the module defaults. See docs/gdb-dashboard.md.
 
