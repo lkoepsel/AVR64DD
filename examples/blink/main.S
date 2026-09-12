@@ -25,6 +25,7 @@ reset_handler:                      ; serves as main_setup
 main_loop:
     sbi     VPF_IN, LED             ; toggle PF5
     delay_16   0                    ; @0 delay maximum, 65536 ticks
+    delay_16   0                    ; @0 delay maximum, 65536 ticks
     rjmp    main_loop
 .size   reset_handler, .-reset_handler
 

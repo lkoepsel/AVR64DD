@@ -12,7 +12,7 @@
 #    assembly       -- live disassembly with the PC marker
 #    avrregs        -- curated working regs + decoded SREG + PC (avr_modules.py)
 #    avrperipheral  -- added only when the example's avr_dashboard.py defines
-#                      AVR_PERIPHERALS (e.g. TCA0 for asm_blink_pwm)
+#                      AVR_PERIPHERALS (e.g. TCA0 for blink_pwm)
 #    avrsram        -- added only when the example's avr_dashboard.py defines
 #                      AVR_SRAM (hexdump of one or more SRAM regions)
 # ============================================================================

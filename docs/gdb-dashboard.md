@@ -1,4 +1,4 @@
-# Headless Debugging with gdb-dashboard (AVR64DD32 + Bloom)
+# Headless Debugging with gdb-dashboard (AVR64DD32 + Bloom / PyAvrOCD)
 
 [Bloom Insight](https://bloom.oscillate.io/) is excellent, but it is a Qt GUI —
 it does not work when you SSH into a **headless Raspberry Pi** with the board
@@ -16,7 +16,7 @@ example directory, is a clean three-pane view halted at the reset vector:
 ── Assembly ────────────────────────────────────────
    (disassembly centered on PC, AVR byte addresses)
 ── AVR Registers ───────────────────────────────────
-r18=0x15  r19=0xFA  r20=0x3B
+r18=0x15  r19=0xFA
 SREG = 0x00  [ i t h s v n z c ]      (UPPER=set, lower=clear)
 SP   = 0x7FFF
 PC   = 0x0014
@@ -37,7 +37,7 @@ PC   = 0x0014
   selected memory-mapped peripheral registers — the headless equivalent of
   Insight's peripheral view. An example lists them in its `avr_dashboard.py`
   (`AVR_PERIPHERALS`); the pane is added to the layout **only** when an example
-  defines them (e.g. `asm_blink_pwm` shows TCA0's CTRLA/CTRLB/CNT/PER/CMP2). One
+  defines them (e.g. `blink_pwm` shows TCA0's CTRLA/CTRLB/CNT/PER/CMP2). One
   byte registers can be bit-decoded via `AVR_BITFIELDS`.
 - **SRAM pane (per example).** A third module (`AvrSram`) hexdumps one or more
   regions of SRAM — address, 16 hex bytes, and printable ASCII per row — the
@@ -52,9 +52,9 @@ PC   = 0x0014
   works if the address is covered by an `STT_FUNC` symbol. Plain asm labels are
   not functions, so the example sources mark their entry points with
   `.type <label>, @function` / `.size <label>, .-<label>` (see
-  `AVR64DD_examples/asm_blink/main.S`). This also removes the `?` that
+  `examples/blink/main.S`). This also removes the `?` that
   gdb-dashboard prints for the unknown-function column.
-- **Register read/write while halted.** Bloom's `mon rr <peripheral>` /
+- **Register read/write while halted (Bloom only).** Bloom's `mon rr <peripheral>` /
   `mon wr <peripheral> <reg> <val>` work at the gdb prompt; their output
   appears in the dashboard's *Output/messages* area.
 
@@ -64,7 +64,7 @@ PC   = 0x0014
 |---|---|---|
 | `avr_modules.py`   | `~/.gdbinit.d/` | the `AvrRegs` (curated regs + SREG + PC), `AvrPeripheral`, and `AvrSram` modules |
 | `avr_layout.gdb`   | `~/.gdbinit.d/` | layout `source assembly avrregs` (+ `avrperipheral`/`avrsram` when defined); shorter source; hide the `?` column |
-| `avr_connect.gdb`  | `~/.gdbinit.d/` | the `connect` command (attach + `break *0` + `load`, then a clean redisplay) |
+| `avr_connect.gdb`  | `~/.gdbinit.d/` | the `connect` command (attach + `break *0` + `load`, then a clean redisplay); tries PyAvrOCD `:2000` then Bloom `:1442` |
 | `avr_commands.gdb` | `~/.gdbinit.d/` | convenience commands: `cll` (rebuild + reload + list), `mrc` (reset + run) |
 | `avr_autostart.py` | `~/.gdbinit.d/` | auto-runs `connect` on startup **if** the cwd has a `main.elf` |
 | `avr_settings.gdb` | `~/.gdbinit.d/` | `set confirm off`, `set listsize 0`, global `~/.gdb_history` |
@@ -79,7 +79,8 @@ plain `gdb` anywhere else is untouched. No per-example `.gdbinit` files.
 
 1. **Install gdb-dashboard** as `~/.gdbinit`:
    ```sh
-   wget -P ~ https://git.io/.gdbinit      # or copy from the gdb-dashboard repo
+   curl -Lo ~/.gdbinit \
+     https://raw.githubusercontent.com/cyrus-and/gdb-dashboard/master/.gdbinit
    ```
    (Requires a `gdb`/`avr-gdb` built with Python support — the standard
    toolchain has it.)
@@ -115,22 +116,47 @@ environments:
       port: 1442
 ```
 
+4. **macOS only** — *Bloom* is Linux-only, so install *PyAvrOCD* as the GDB
+   server instead (no `bloom.yaml` needed; the target is given on the command
+   line). `avr-gdb` **must** have Python support or none of the modules above
+   will load — PyAvrOCD's own prebuilt `avr-gdb` does **not**, so take the tap's:
+
+   ```sh
+   pipx install pyavrocd
+   brew tap osx-cross/avr && brew trust osx-cross/avr && brew install avr-gdb
+   avr-gdb --batch -ex 'python print(1)'      # must NOT say "not supported"
+   ```
+
 ## Use
 
-Two terminals (or `bloom &`):
+Two terminals. **Linux (Bloom)** — or `bloom &`:
 
 ```sh
 # terminal 1 -- the GDB server
-cd AVR64DD_examples/asm_blink && bloom
+cd examples/blink && bloom
 ```
 ```sh
 # terminal 2 -- the debugger (no banner, auto-connects, clean dashboard)
-cd AVR64DD_examples/asm_blink && avr-gdb
+cd examples/blink && avr-gdb
 (gdb) si           # step one instruction; all panes repaint automatically
 (gdb) c            # run;  Ctrl-C to halt (or set a breakpoint)
 ```
 
-- `connect` — re-run the attach/flash/redisplay by hand if needed.
+**macOS (PyAvrOCD)** — identical, only the server changes. It listens on port
+**2000** and takes the target on the command line:
+
+```sh
+# terminal 1 -- the GDB server (-t atmelice for a bare AVR64DD28)
+pyavrocd -d avr64dd32 -t nedbg -i updi -F 4000000
+```
+```sh
+# terminal 2 -- the debugger (no banner, auto-connects, clean dashboard)
+cd examples/blink && avr-gdb
+```
+
+- `connect` — re-run the attach/flash/redisplay by hand if needed. The
+  installed copy tries **:2000** (PyAvrOCD) then **:1442** (Bloom), so it
+  works on either platform; `connect 1442` forces one.
 - `cll` — rebuild (`make`), reload onto the target, and list source.
 - `mrc` — reset to the vector and run (`mon reset` + `continue`).
 - `mon reset` — reset the core to the vector.
@@ -142,9 +168,9 @@ cd AVR64DD_examples/asm_blink && avr-gdb
 1. Copy **`avr_dashboard.py`** next to the program's `main.S` choosing the
    registers to show — it's read automatically when you launch `avr-gdb` in that
    directory, and is tracked in the repo per example. For example
-   (`AVR64DD_examples/asm_blink/avr_dashboard.py`):
+   (`examples/blink/avr_dashboard.py`):
    ```python
-   AVR_REG_SET   = ["r18", "r19", "r20"]   # in display order
+   AVR_REG_SET   = ["r18", "r19"]          # in display order
    AVR_REG_PAIRS = []                       # e.g. [("r30", "r31", "Z")] for Z
    REGS_PER_ROW  = 4
    ```
@@ -152,7 +178,7 @@ cd AVR64DD_examples/asm_blink && avr-gdb
 
    To also show **peripheral registers**, add `AVR_PERIPHERALS` (and optionally
    `AVR_BITFIELDS`) — the peripheral pane then appears automatically. For
-   example (`AVR64DD_examples/asm_blink_pwm/avr_dashboard.py`, TCA0 PWM):
+   example (`examples/blink_pwm/avr_dashboard.py`, TCA0 PWM):
    ```python
    #                name           addr     width
    AVR_PERIPHERALS = [

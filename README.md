@@ -6,11 +6,11 @@ Notes as to developing C and assembly code for the Microchip AVR64DD.
 ## Introduction
 This repository provides examples in [*AVR assembly language*](https://ww1.microchip.com/downloads/en/DeviceDoc/AVR-Instruction-Set-Manual-DS40002198A.pdf) for the Microchip **AVR64DD32**, targeting the [*AVR64DD32 Curiosity Nano*](./documentation/AVR64DD32CNANO-Prel-HW-UserGuide-DS50003323.pdf) evaluation board. The same examples apply to the closely related **AVR64DD28** with a one-line change in *env.make*. To use this framework you need a recent *GNU AVR* toolchain (*avr-gcc* / *avr-libc*) new enough to know the AVR-Dx parts; current packages on *Linux*, *macOS*, and *Windows* include them, so no separate device pack is required.
 
-Example programs live under [**examples**](./AVR64DD_examples). Each subfolder is an *assembly language* example, with a *main.S* file. A `Makefile` builds an executable with standard *make* targets (`make`, `make flash`, `make size`, …) work in every example folder.
+Example programs live under [**examples**](./examples). Each subfolder is an *assembly language* example, with a *main.S* file. A `Makefile` builds an executable with standard *make* targets (`make`, `make flash`, `make size`, …) work in every example folder.
 
 The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = pkobn_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
-For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end.
+For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end. On *macOS*, Bloom will not build (it is Linux-only), so use [**PyAvrOCD**](https://pyavrocd.io/) as the GDB server instead — same `avr-gdb` + *gdb-dashboard* front-end, different server. See [macOS: PyAvrOCD and avr-gdb](#3-macos-debugging-with-pyavrocd-and-avr-gdb).
 
 This terminal-based approach can be information-rich as it is customizable to the specific registers being used. Very nice output, for example:
 ```
@@ -84,7 +84,7 @@ Notes on using *git*. I am neither an expert on *git* nor proficient in *git*. T
 Given the AVR64DD32 requires a hardware interface to load software, I recommend using *bloom* as the interface to avr-gdb. This provides loading and debugging capability, which is required to be successful. 
 
 #### [gdb-dashboard.md](./docs/gdb-dashboard.md)
-Headless terminal debugging for the AVR64DD32 with *gdb-dashboard* + *Bloom* — the SSH/Raspberry-Pi alternative to Bloom Insight. Curated AVR register view, centered disassembly, auto-connect. Config files in [`docs/dashboard/`](./docs/dashboard).
+Headless terminal debugging for the AVR64DD32 with *gdb-dashboard* + *Bloom* (Linux) or *PyAvrOCD* (macOS) — the SSH/Raspberry-Pi alternative to Bloom Insight. Curated AVR register view, centered disassembly, auto-connect. Config files in [`docs/dashboard/`](./docs/dashboard).
 
 ## Steps to Use
 1. Install the AVR toolchain which consists of *avr-gcc*, *avr-gdb*, and *avrdude* as well as *make* and *git*. A **great** method is to use a [Raspberry Pi as your development platform.](./docs/RPi_build.md). If you wish to use *Windows* or *macOS*, some instruction is provided [here](https://www.wellys.com/posts/avr_c_setup/).
@@ -118,7 +118,7 @@ avrdude -p 64dd32 -P usb -c pkobn_updi -t
 
 ## Using Bloom and avr-gdb
 
-Developing code in assembly language, requires strong debugging tools. As mentioned prior, *Bloom* and *avr-gdb* are the great tools to do so. There are **two methods** to using them; on a desktop, use the *Bloom GUI, Insight* or headless, using *gdb-dashboard*. I've found the latter to be my preferred method, as it allows me to customize the debugging window specific to the program I am debugging.
+Developing code in assembly language, requires strong debugging tools. As mentioned prior, *Bloom* and *avr-gdb* are the great tools to do so. There are **two methods** to using them; on a desktop, use the *Bloom GUI, Insight* or headless, using *gdb-dashboard*. I've found the latter to be my preferred method, as it allows me to customize the debugging window specific to the program I am debugging. Both methods below assume *Linux*, where *Bloom* runs; on *macOS* substitute *PyAvrOCD* for *Bloom* as the GDB server (method 3) — the *gdb-dashboard* front-end is identical.
 
 [Bloom AVR64DD32 Details](https://bloom.oscillate.io/docs/target/avr64dd32)
 
@@ -227,12 +227,62 @@ Start Bloom in an example directory, then launch *avr-gdb* — the [gdb-dashboar
 
 ```bash
 # terminal 1
-cd AVR64DD_examples/asm_blink && bloom
+cd examples/blink && bloom
 # terminal 2
-cd AVR64DD_examples/asm_blink && avr-gdb
+cd examples/blink && avr-gdb
 ```
 
-## Typical gdb commands (*Once one of the two methods above, have been started*)
+### 3. macOS: Debugging with *PyAvrOCD* and *avr-gdb*
+
+*Bloom* is **Linux-only** — it depends on `epoll`, `eventfd`, `/proc/self/exe`
+and *udev* rules, none of which exist on macOS. Rather than port it, use
+[**PyAvrOCD**](https://pyavrocd.io/), a cross-platform AVR GDB server (MIT,
+Python) that speaks *debugWIRE*, *JTAG* and *UPDI*. It supports the Nano's
+on-board **nEDBG** and the **Atmel-ICE**, so both of this repo's `env.make`
+configurations work. The front end is unchanged: the same *avr-gdb* and the same
+*gdb-dashboard* setup from [docs/gdb-dashboard.md](./docs/gdb-dashboard.md).
+
+**Install** (tested on macOS 26.6, Apple Silicon):
+
+```bash
+pipx install pyavrocd                              # the GDB server
+brew tap osx-cross/avr
+brew trust osx-cross/avr                           # Homebrew gates third-party taps
+brew install avr-gdb                               # GDB 17.2, WITH Python support
+```
+
+> ⚠️ **avr-gdb must have Python support.** *gdb-dashboard* is a Python script,
+> and so are the `AvrRegs` / `AvrPeripheral` / `AvrSram` modules. PyAvrOCD ships
+> prebuilt macOS `avr-gdb` binaries, but they are built **without** Python
+> (`Python scripting is not supported in this copy of GDB`) — the dashboard will
+> not run on them. The `osx-cross/avr` tap's build does have it.
+
+> Installing `avr-gdb` from the tap does **not** install *avr-gcc*: the formula
+> declares `avr-gcc@15` as a `=> :test` dependency, so a hand-built toolchain in
+> `/usr/local/avr` is left untouched.
+
+**Use** — two terminals, exactly as with Bloom:
+
+```bash
+# terminal 1 -- the GDB server (default port 2000)
+pyavrocd -d avr64dd32 -t nedbg -i updi -F 4000000
+# terminal 2 -- the debugger (auto-connects, flashes, halts at the reset vector)
+cd examples/blink && avr-gdb
+```
+
+For a bare **AVR64DD28** with an *Atmel-ICE*, swap the tool: `-t atmelice`.
+
+The `connect` command in `~/.gdbinit.d/avr_connect.gdb` tries **:2000**
+(PyAvrOCD) first, then **:1442** (Bloom), so one command serves both platforms —
+on Linux with *bloom* running, `:2000` simply refuses and `:1442` attaches as
+before. Force one with `connect 1442`.
+
+> **C-only caveat:** *avr-gcc 15.1* emits buggy debug information for **local
+> variables** (see PyAvrOCD's *Limitations* page). The `osx-cross/avr` tap ships
+> *15.2.0*, which is the documented remedy. Assembly examples are unaffected —
+> they have no C locals.
+
+## Typical gdb commands (*Once one of the methods above has been started*)
 
 Assuming you have setup ~/.gdbinit from above, once gdb has started, there will be two windows:
 1. Top window is your main.c or main.S listing
@@ -565,7 +615,7 @@ TCA0's six waveform outputs (WO0–WO5) map to pins 0–5 of whichever port
   **PA0/PA1 carry the 24 MHz crystal and are disconnected from the edge
   connector by default** (to use them as GPIO: cut straps J214/J215 to free the
   crystal, then bridge solder points J207/J208). So **PA2 is the only directly
-  usable default channel** — no board mods. (See `AVR64DD_examples/asm_blink_pwm`.)
+  usable default channel** — no board mods. (See `examples/blink_pwm`.)
 - **Route TCA0 to PORTD** (`PORTMUX.TCAROUTEA`) to get **WO1/WO2/WO3 on
   PD1/PD2/PD3**, which are broken out on the header with no modifications —
   handy when you want multiple PWM channels.

@@ -16,7 +16,7 @@ Each example is built from *inside its own directory*. You don't build from the
 repo root.
 
 ```sh
-cd AVR64DD_examples/asm_blink   # or any example dir
+cd examples/blink   # or any example dir
 make            # = make all: compile + link -> main.hex
 make compile    # build main.hex only
 make flash      # build, print size, upload to board via avrdude
@@ -35,9 +35,8 @@ the repo root): `make static` runs cppcheck for `--platform=avr8` into
 
 There is **no test suite** — verification is "does it build and run on the
 chip." The closest thing to CI is `make build_all` (clean + build every
-example, report failures) and `make clean_all`. ⚠️ Both targets glob
-`$(DEPTH)examples/*/`, but the actual example directory is only examples/`, so it currently matches nothing
-— treat these targets as stale until the path is fixed.
+example, report failures) and `make clean_all`. Both targets glob
+`$(DEPTH)examples/*/`, which matches the example directories under `examples/`.
 
 ## How the build system fits together
 
@@ -65,9 +64,11 @@ The architecture that needs multiple files to understand:
   why a single Makefile builds pure-asm, pure-C, and mixed examples without
   configuration.
 
-- **Naming convention:** assembly examples are prefixed `asm_` and use `main.S`
-  (uppercase `.S` so the C preprocessor runs first, enabling `#include
-  <avr/io.h>` and `_SFR_IO_ADDR(...)`). C / mixed examples use `main.c`.
+- **Naming convention:** assembly examples use `main.S` (uppercase `.S` so the
+  C preprocessor runs first, enabling `#include <avr/io.h>` and
+  `_SFR_IO_ADDR(...)`); C / mixed examples use `main.c`. Example directories are
+  plain names under `examples/` (`blink`, `blink_pwm`, `ring`, …) — an older
+  `asm_` prefix still appears in some docs but is no longer used.
 
 ## The shared assembly library (`Library/`)
 
@@ -85,18 +86,52 @@ Two cross-cutting constraints you must respect:
   `*_asm.h` headers: byte args/returns in `r24`, words in `r25:r24`, a flash
   address in `r31:r30` (Z). Match these exactly when adding routines.
 
-## Debugging (Bloom + avr-gdb)
+## Debugging (two GDB servers, chosen by platform)
 
-Debugging uses [Bloom](https://bloom.oscillate.io/) as the GDB server bridge to
-the hardware (the recommended workflow on Linux). `bloom.yaml` configures it:
-`curiosity_nano` tool, `avr64dd32` target over UPDI, GDB RSP server on
-`127.0.0.1:1442`. `bloom.yaml` is git-ignored (a template is committed). For
-debugWIRE-style ATtiny targets, prefer gdb `load` + `mon reset` over re-flashing
-with avrdude to avoid churning the DWEN fuse (see README).
+The front end is always `avr-gdb` + [gdb-dashboard](./docs/gdb-dashboard.md) —
+modules in `docs/dashboard/` (installed to `~/.gdbinit.d/`), per-example register
+/ peripheral / SRAM choices in each example's `avr_dashboard.py`. Only the GDB
+*server* differs by platform.
+
+**Linux — Bloom** (unchanged; still the recommended Linux workflow).
+[Bloom](https://bloom.oscillate.io/) bridges to the hardware. `bloom.yaml`
+configures it: `curiosity_nano` tool, `avr64dd32` target over UPDI, GDB RSP
+server on `127.0.0.1:1442`. `bloom.yaml` is git-ignored; copy the YAML block in
+`docs/gdb-dashboard.md` to create it.
+
+**macOS — PyAvrOCD.** Bloom is Linux-only (epoll, eventfd, `/proc/self/exe`,
+udev rules), so macOS uses [PyAvrOCD](https://pyavrocd.io/), a cross-platform
+AVR GDB server supporting debugWIRE / JTAG / UPDI. Default port **2000**.
+
+```sh
+pipx install pyavrocd                              # the GDB server
+brew tap osx-cross/avr && brew install avr-gdb     # see caveat below
+
+pyavrocd -d avr64dd32 -t nedbg -i updi -F 4000000  # terminal 1
+cd examples/blink && avr-gdb                       # terminal 2 (auto-connects)
+```
+
+⚠️ **avr-gdb must be built with Python support** — gdb-dashboard is a Python
+script. PyAvrOCD ships prebuilt macOS `avr-gdb` binaries, but they are built
+*without* Python and the dashboard will not run on them. The `osx-cross/avr`
+tap's build does have it (verified: GDB 17.2, Python 3.14.7). Installing that
+formula does **not** pull in avr-gcc — `avr-gcc@15` is a `=> :test` dependency —
+so a hand-built `/usr/local/avr` toolchain is left untouched. Homebrew needs
+`brew trust osx-cross/avr` before it will install from the tap.
+
+The installed `~/.gdbinit.d/avr_connect.gdb` differs from the repo copy in one
+way: `connect` tries `:2000` (PyAvrOCD) then `:1442` (Bloom), so the same
+command works on both platforms. `connect 1442` forces a specific port.
+
+> **C-only caveat:** avr-gcc 15.1 emits buggy debug info for *local variables*
+> (noted in PyAvrOCD's docs; the `osx-cross/avr` tap ships 15.2.0). Assembly
+> examples are unaffected — they have no C locals.
+
+For debugWIRE-style ATtiny targets, prefer gdb `load` + `mon reset` over
+re-flashing with avrdude to avoid churning the DWEN fuse (see README).
 
 ## Reference material
 
 The `documentation/` folder holds local PDFs (AVR64DD datasheet, instruction
 set, avr-libc manual, gcc/gdb/as manuals, Curiosity Nano user guide). The README
-is extensive — for AVR64DD
-specifics, prefer the in-tree `AVR64DD_examples/` sources and `bloom.yaml`.
+is extensive — for AVR64DD specifics, prefer the in-tree `examples/` sources.
