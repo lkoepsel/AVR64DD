@@ -66,6 +66,7 @@ PC   = 0x0014
 * [GDB Online Manual](https://sourceware.org/gdb/current/onlinedocs/gdb.html/index.html#Top) 
 * [Bloom Documentation](https://bloom.oscillate.io/docs/getting-started)
 * [Bloom Target Information](https://bloom.oscillate.io/docs/target/avr64dd32)
+* [PyAvrOCD Documentation](https://pyavrocd.io)
 
 ## docs
 

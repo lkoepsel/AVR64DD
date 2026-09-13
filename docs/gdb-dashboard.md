@@ -219,3 +219,23 @@ Nothing else: auto-connect is global, so `avr-gdb` in any directory that has a
 > **Note:** gdb-dashboard and gdb's built-in **TUI** are mutually exclusive —
 > enabling TUI (`tui enable` / `layout`) fights the dashboard for the screen and
 > requires manual `refresh`. Stay in the dashboard for headless use.
+
+
+## PyAvrOCD Monitor Commands
+
+To get register names [AVR64DD32 Target Description File](https://bloom.oscillate.io/docs/target/avr64dd32)
+
+To query specific registers dynamically in *avr-gdb*, use the PyAvrOCD `monitor` command. You might need to use the "\*" wildcard. See below for examples:
+
+```bash
+# to list ALL registers
+mon ioreg *
+
+# get a list of all port names
+mon ioreg port*
+
+# toggle the output pin PF5
+mon ioreg portf.in 0xbf
+
+# set the output pin PF5 low
+mon ioreg portf.out 0xaf
