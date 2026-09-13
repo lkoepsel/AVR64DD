@@ -308,7 +308,7 @@ At this point, the program has been loaded into the *AVR64DD32* and it is ready 
 * `cll` to compile, link and load the program
 
 
-#### bloom and using register commands
+### bloom and using register commands
 
 *avr-gdb 16* has a bug when using the *TUI* and terminal color commands. It has been fixed in version 17. If required, use *td* to *disable the TUI* and *te* to *enable the TUI*. While the commands below have had the *TUI* disabled, this is no longer neccesary when using avr-gdb version 17.0+.
 
@@ -353,6 +353,61 @@ Register written
 (gdb) mon wr tc0 ocr0a 90
 Writing value 0x90 (8-bit) to "OCR0A" register, at address 0x00000056, via `data` address space...
 Register written
+```
+
+### PyAvrOCD and using register commands
+
+To get register names [AVR64DD32 Target Description File](https://bloom.oscillate.io/docs/target/avr64dd32) or [docs/ioavr64dd32.md](./docs/ioavr64dd32.md)
+
+To query specific registers dynamically in *avr-gdb*, use the PyAvrOCD `monitor` command. You might need to use the "\*" wildcard. See below for examples:
+
+
+#### Example: Setting Pins
+```bash
+# to get all port names
+mon ior *
+
+# use wildcard to query port names
+>>> mon ior portf*
+PORTF.DIR (@0x8004A0, 8-bits) = 0x20, 0b100000, 32 (Data Direction)
+PORTF.DIRCLR (@0x8004A2, 8-bits) = 0x20, 0b100000, 32 (Data Direction Clear)
+PORTF.DIRSET (@0x8004A1, 8-bits) = 0x20, 0b100000, 32 (Data Direction Set)
+PORTF.DIRTGL (@0x8004A3, 8-bits) = 0x20, 0b100000, 32 (Data Direction Toggle)
+PORTF.IN (@0x8004A8, 8-bits) = 0xBF, 0b10111111, 191 (Input Value)
+PORTF.INTFLAGS (@0x8004A9, 8-bits) = 0x0, 0b0, 0 (Interrupt Flags)
+PORTF.OUT (@0x8004A4, 8-bits) = 0x20, 0b100000, 32 (Output Value)
+PORTF.OUTCLR (@0x8004A6, 8-bits) = 0x20, 0b100000, 32 (Output Value Clear)
+PORTF.OUTSET (@0x8004A5, 8-bits) = 0x20, 0b100000, 32 (Output Value Set)
+PORTF.OUTTGL (@0x8004A7, 8-bits) = 0x20, 0b100000, 32 (Output Value Toggle)
+PORTF.PIN0CTRL (@0x8004B0, 8-bits) = 0x0, 0b0, 0 (Pin 0 Control)
+PORTF.PIN1CTRL (@0x8004B1, 8-bits) = 0x0, 0b0, 0 (Pin 1 Control)
+PORTF.PIN2CTRL (@0x8004B2, 8-bits) = 0x0, 0b0, 0 (Pin 2 Control)
+PORTF.PIN3CTRL (@0x8004B3, 8-bits) = 0x0, 0b0, 0 (Pin 3 Control)
+PORTF.PIN4CTRL (@0x8004B4, 8-bits) = 0x0, 0b0, 0 (Pin 4 Control)
+PORTF.PIN5CTRL (@0x8004B5, 8-bits) = 0x0, 0b0, 0 (Pin 5 Control)
+PORTF.PIN6CTRL (@0x8004B6, 8-bits) = 0x0, 0b0, 0 (Pin 6 Control)
+PORTF.PIN7CTRL (@0x8004B7, 8-bits) = 0x0, 0b0, 0 (Pin 7 Control)
+PORTF.PINCONFIG (@0x8004AB, 8-bits) = 0x0, 0b0, 0 (Pin Control Config)
+PORTF.PINCTRLCLR (@0x8004AE, 8-bits) = 0x0, 0b0, 0 (Pin Control Clear)
+PORTF.PINCTRLSET (@0x8004AD, 8-bits) = 0x0, 0b0, 0 (Pin Control Set)
+PORTF.PINCTRLUPD (@0x8004AC, 8-bits) = 0x0, 0b0, 0 (Pin Control Update)
+PORTF.PORTCTRL (@0x8004AA, 8-bits) = 0x0, 0b0, 0 (Port Control)
+
+# check portf output (LED off)
+>>> mon ior portf.out 0x20
+PORTF.OUT = 32 (old value was: 32)
+
+# check portf output (LED on)
+>>> mon ior portf.out 0x00
+PORTF.OUT = 0 (old value was: 32)
+
+# write to control register to invert 
+>>> mon ior portf.pin5ctrl 0x80
+PORTF.PIN5CTRL = 128 (old value was: 0)
+
+# check portf output (LED on)
+>>> mon ior portf.out 0x20
+PORTF.OUT = 32 (old value was: 0)
 ```
 
 ### avr-gdb commands
@@ -777,6 +832,8 @@ Usage examples:
 ```
 
 ### Report existing firmware and confirm device is found
+
+```bash
 ~/Documents/AVR64DD (main) $ pydebuggerupgrade -r
 Reporting firmware versions
 nedbg:MC020019502HIP003010=1.25.116

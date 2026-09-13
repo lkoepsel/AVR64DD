@@ -2,6 +2,20 @@
 
 Header file for determining specifications. Same as ioavr64dd32.h, however, with overhead logic removed.
 
+
+## NOTE:
+
+To use the names below with `monitor ioregister` commands in *PyAvrOCD*, replace the "\_" with ".". As in:
+
+```bash
+# to view the PORTF_DIR
+mon ior portf.dir
+
+# to set PORTF_OUT
+mon ior portf.out 0x20
+```
+
+
 ```C
 /* AC - Analog Comparator */
 /* AC.CTRLA  bit masks and bit positions */
