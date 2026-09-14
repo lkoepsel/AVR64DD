@@ -10,23 +10,6 @@ Example programs live under [**examples**](./examples). Each subfolder is an *as
 
 The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = pkobn_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
-For the best debugging experience on *Linux*, I strongly recommend [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb) just below. For headless / SSH use (e.g. a Raspberry Pi dev host), use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end. On *macOS*, Bloom will not build (it is Linux-only), so use [**PyAvrOCD**](https://pyavrocd.io/) as the GDB server instead — same `avr-gdb` + *gdb-dashboard* front-end, different server. See [macOS: PyAvrOCD and avr-gdb](#3-macos-debugging-with-pyavrocd-and-avr-gdb).
-
-This terminal-based approach can be information-rich as it is customizable to the specific registers being used. Very nice output, for example:
-```
-── Source ──────────────────────────────────────────
-   (main.S, current line highlighted)
-── Assembly ────────────────────────────────────────
-   (disassembly centered on PC, AVR byte addresses)
-── AVR Registers ───────────────────────────────────
-r18=0x15  r19=0xFA  r20=0x3B
-SREG = 0x00  [ i t h s v n z c ]      (UPPER=set, lower=clear)
-SP   = 0x7FFF
-PC   = 0x0014
-```
-
-
-
 ## Local Documentation (in the repo folder [documentation](./documentation))
 
 ### AVR64DD32 and Curiosity Nano Details
@@ -68,24 +51,65 @@ PC   = 0x0014
 * [Bloom Target Information](https://bloom.oscillate.io/docs/target/avr64dd32)
 * [PyAvrOCD Documentation](https://pyavrocd.io)
 
-## docs
+## Development Setup
 
-### Table of Contents
+### 1. gdb-dashboard terminal-based approach
 
-#### [env_make.md](./docs/env_make.md)
-The file env_make is used to customize the *make* process for *ATtiny* development. It is **required** in order for make to properly identify the parameters needed for compiling/linking/uploading executable code to an AVR microcontroller. **This file is not tracked by *git* and needs to be installed manually.** 
+* **Headless Rasperry Pi** - Use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end along with *avr-gdb*. This setup works well using  *SSH* to connect to the *RPi*, *VS Code Remote* to edit code and *avr-gdb/Bloom* to load code.
 
-#### [vs_code.md](./docs/vs_code.md)
-This page contains the files needed to be more efficient with *VS Code*. Install them in the *.vscode* folder of *ATtiny*. **They are not tracked by *git*.**
+* **macOS** - Use [**PyAvrOCD**](https://pyavrocd.io/) as the GDB server instead — same `avr-gdb` + *gdb-dashboard* front-end, different server. See [macOS: PyAvrOCD and avr-gdb](#3-macos-debugging-with-pyavrocd-and-avr-gdb). (*This approach probably works with Windows as well, I haven't tested it.*)
 
-#### [git.md](./docs/git.md)
-Notes on using *git*. I am neither an expert on *git* nor proficient in *git*. This page is primarily for myself, however, it has helped a few people.
 
-#### [bloom and gdb.md](./docs/bloomandgdb.md)
-Given the AVR64DD32 requires a hardware interface to load software, I recommend using *bloom* as the interface to avr-gdb. This provides loading and debugging capability, which is required to be successful. 
+The terminal-based approach of *gdb-dashboard* can be information-rich as it is customizable to the specific registers being used. Very nice output, for example:
+```
+─── Output/messages ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+^C
+Program received signal SIGINT, Interrupt.
+0x0000001a in reset_handler () at main.S:28
+28          delay_16   0                    ; @0 delay maximum, 65536 ticks
+─── Source ───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ 16  __vectors:
+ 17      jmp     reset_handler           ; vector 0  RESET
+ 18
+ 19  .section .text
+ 20
+ 21  .type   reset_handler, @function
+ 22  reset_handler:                      ; serves as main_setup
+ 23      sbi     VPF_DIR, LED            ; set PF5 as output
+ 24
+ 25  main_loop:
+ 26      sbi     VPF_IN, LED             ; toggle PF5
+ 27      delay_16   0                    ; @0 delay maximum, 65536 ticks
+ 28      delay_16   0                    ; @0 delay maximum, 65536 ticks
+ 29      rjmp    main_loop
+ 30  .size   reset_handler, .-reset_handler
+ 31
+ 32  .section .data
+ 33  .section .bss
+─── Assembly ─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ 0x00000010   brne      .-6             ;  0xc <reset_handler+8>
+ 0x00000012   ldi       r18, 0x00       ; 0
+ 0x00000014   ldi       r19, 0x00       ; 0
+ 0x00000016   subi      r18, 0x01       ; 1
+ 0x00000018   sbci      r19, 0x00       ; 0
+ 0x0000001a   brne      .-6             ;  0x16 <reset_handler+18>
+ 0x0000001c   rjmp      .-24            ;  0x6 <reset_handler+2>
+─── AVR Registers ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+r18=0xA0  r19=0x5C
+SREG = 0x00  [ i t h s v n z c ]
+SP   = 0x7FFF
+PC   = 0x001A
+─── AVR Peripherals ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+VPORTF.DIR @0x0014 = 0x20
+VPORTF.OUT @0x0015 = 0x00
+VPORTF.IN  @0x0016 = 0x81
+──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+```
 
-#### [gdb-dashboard.md](./docs/gdb-dashboard.md)
-Headless terminal debugging for the AVR64DD32 with *gdb-dashboard* + *Bloom* (Linux) or *PyAvrOCD* (macOS) — the SSH/Raspberry-Pi alternative to Bloom Insight. Curated AVR register view, centered disassembly, auto-connect. Config files in [`docs/dashboard/`](./docs/dashboard).
+### 2. Pure Linux approach
+
+* **Linux**  - Use [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a Linux desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb). 
+
 
 ## Steps to Use
 1. Install the AVR toolchain which consists of *avr-gcc*, *avr-gdb*, and *avrdude* as well as *make* and *git*. A **great** method is to use a [Raspberry Pi as your development platform.](./docs/RPi_build.md). If you wish to use *Windows* or *macOS*, some instruction is provided [here](https://www.wellys.com/posts/avr_c_setup/).
@@ -848,3 +872,34 @@ Upgrade to firmware version '1.34.89' successful
 Reporting firmware versions
 nedbg:MC020019502HIP003010=1.34.89
 ```
+
+## Additional Documentation (*Claude-generated.*)
+
+### Table of Contents
+
+#### [asm-group-codes.md](./docs/asm-group-codes.md)
+A description as to why *assembly* code register references differ from *C* and how to deal with it.
+
+#### [bit_set.md](./docs/bit_set.md)
+A reminder as to how to set bits dynamically in assembly code as well as enhancements in the new DD AVR family.
+
+#### [ChangingClockFrequency.md](./docs/ChangingClockFrequency.md)
+Instructions as to how to change the clock frequency in software.
+
+#### [definitions.md](./docs/definitions.md)
+How to write definitions in assembly language, given the *make* process uses the *C* preprocessor. 
+
+#### [DS_references.md](./docs/DS_references.md)
+How to use the register references found in [ioavr64dd32.md](./docs/ioavr64dd32.md).
+
+#### [gdb-dashboard.md](./docs/gdb-dashboard.md)
+Headless terminal debugging for the AVR64DD32 with *gdb-dashboard* + *Bloom* (Linux) or *PyAvrOCD* (macOS) — the SSH/Raspberry-Pi alternative to Bloom Insight. Curated AVR register view, centered disassembly, auto-connect. Config files in [`docs/dashboard/`](./docs/dashboard).
+
+#### [ioavr64dd32.md](./docs/ioavr64dd32.md)
+Contains all of the symbolic names for registers on the AVr64DD32, very important for debugging. 
+
+#### [logic.md](./docs/logic.md)
+A gentle reminder as to how shifts work in assembly language.
+
+#### [VSCodeAVRSetup.md](./docs/VSCodeAVRSetup.md)
+This page contains the files needed to be more efficient with VS Code. Install them in the .vscode folder. **They are not tracked by git.**
