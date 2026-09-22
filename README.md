@@ -1,6 +1,6 @@
 # Developing C and Assembly Language Code Using the AVR64DD 
 
-Notes as to developing in assembly code for the Microchip AVR64DD. 
+Notes as to developing in *assembly code* for the **Microchip AVR64DD**. 
 ![AVR64DD32_Curiosity_Nano](./documentation/AVR64DD32_Curiosity_Nano.png)
 
 ## Introduction
@@ -66,7 +66,7 @@ The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debu
 
 * **Headless Rasperry Pi** - Use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end along with *avr-gdb* and *bloom* as the *GDB server*. This setup works well using  *SSH* to connect to the *RPi*, *VS Code Remote* to edit code and *avr-gdb/Bloom* to load code.
 
-* **macOS** - Use [**PyAvrOCD**](https://pyavrocd.io/) as the *GDB server* along with `avr-gdb` + *gdb-dashboard* front-end. See [macOS: PyAvrOCD and avr-gdb](#3-macos-debugging-with-pyavrocd-and-avr-gdb). (*This approach probably works with Windows as well, I haven't tested it.*)
+* **macOS** - Use [**PyAvrOCD**](https://pyavrocd.io/) as the *GDB server* along with *avr-gdb* and the *gdb-dashboard* front-end. See [macOS: PyAvrOCD and avr-gdb](#3-macos-debugging-with-pyavrocd-and-avr-gdb). (*This approach probably works with Windows as well, I haven't tested it.*)
 
 
 The terminal-based approach of *gdb-dashboard* can be information-rich as it is customizable to the specific registers being used. Very nice output, for example:
@@ -117,7 +117,7 @@ VPORTF.IN  @0x0016 = 0x81
 
 ### 2. Pure Linux approach
 
-* **Linux**  - Use [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a Linux desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb). 
+Use [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a Linux desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb). 
 
 
 ## *avrdude* commands
@@ -271,6 +271,11 @@ pipx install pyavrocd                              # the GDB server
 brew tap osx-cross/avr
 brew trust osx-cross/avr                           # Homebrew gates third-party taps
 brew install avr-gdb                               # GDB 17.2, WITH Python support
+```
+
+To upgrade
+```bash
+pipx upgrade pyavrocd
 ```
 
 > ⚠️ **avr-gdb must have Python support.** *gdb-dashboard* is a Python script,
