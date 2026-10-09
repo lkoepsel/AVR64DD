@@ -11,13 +11,14 @@ Example programs live under [**examples**](./examples). Each subfolder is an *as
 The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debug it over a single USB cable using the *UPDI* interface — **no external programmer and no bootloader are required**. The *env.make* file (copied from the *env.dev* template) selects this with `PROGRAMMER_TYPE = pkobn_updi`. For a bare **AVR64DD28** in a DIP socket you instead drive its *UPDI* pin with an [*Atmel-ICE*](https://www.microchip.com/en-us/development-tool/atatmel-ice) or [*Microchip SNAP*](https://www.microchip.com/en-us/development-tool/pg164100); *env.make* has a commented block for that.
 
 ## Overview of Steps to Use
-1. Install the AVR toolchain which consists of *avr-gcc*, *avr-gdb*, and *avrdude* as well as *make* and *git*. A **great** method is to use a [Raspberry Pi as your development platform](./docs/RPi_build.md). If you wish to use *Windows* or *macOS*, some instruction is provided [here](https://www.wellys.com/posts/avr_c_setup/).
+1. Install the AVR toolchain which consists of *avr-gcc*, *avr-gdb*, and *avrdude* as well as *make* and *git*. A **great** method is to use a [Raspberry Pi as your development platform](./docs/RPi_build.md). If you wish to use *Windows* or *macOS*, the installation is more complicated, however it is possible. *macOS* instructions are below. Out-dated, however, still valuable instructions for *Windows* are [here](https://www.wellys.com/posts/avr_c_windows/).
 2. Clone this repository.
 3. Open the *AVR64DD* folder and add an *env.make* file (*see below*) based on your programming board and system.
 4. Navigate to *examples/blink* in your CLI and run:
   * *make* to compile, link and create an executable file
   * *make flash* to upload executable file to your board.
 5. Look at the other examples to better understand how to use the code.
+6. Debugging assembly code without a debugger is difficult, I recommend using **Bloom** with Linux and **PyAvrOCD** with *macOS* or *Windows*. *See **Debugging Setup** below.*
 
 ## Local Documentation (in the repo folder [documentation](./documentation))
 
@@ -60,13 +61,14 @@ The *Curiosity Nano* has an **on-board nEDBG debugger**, so you program and debu
 * [Bloom Target Information](https://bloom.oscillate.io/docs/target/avr64dd32)
 * [PyAvrOCD Documentation](https://pyavrocd.io)
 
-## Development Setup
+## Debugging Setup
+Two approaches, the first is terminal-based and the second is Linux GUI-based. Both work well, and are dependent on your development system.
+### 1. *gdb-dashboard* terminal-based approach
+My approach is to use a terminal-based (*CLI*) approach to debugging. I've found having the ability to customize each debugging window to the programming problem at hand, quite valuable. For simple programs, the debugging information can be 2 or 3 registers, while programs which use the stack, RAM and many registers can have a specific window showing these aspects. To perform in this manner, a *gdb-server* is required. In *Linux*, that would be [**Bloom**](https://bloom.oscillate.io/docs/getting-started), while in *macOS* or *Windows*, its [**PyAvrOCD**](https://pyavrocd.io/). The server provides the necessary connection to the board, for [**gdb-dashboard**](./docs/gdb-dashboard.md).
 
-### 1. gdb-dashboard terminal-based approach
+* **Headless Rasperry Pi** - This setup works well using  *SSH* to connect to the *RPi*, *VS Code Remote* to edit code and *avr-gdb/Bloom* to load code.
 
-* **Headless Rasperry Pi** - Use [**gdb-dashboard**](./docs/gdb-dashboard.md), a pure-terminal front-end along with *avr-gdb* and *bloom* as the *GDB server*. This setup works well using  *SSH* to connect to the *RPi*, *VS Code Remote* to edit code and *avr-gdb/Bloom* to load code.
-
-* **macOS** - Use [**PyAvrOCD**](https://pyavrocd.io/) as the *GDB server* along with *avr-gdb* and the *gdb-dashboard* front-end. See [macOS: PyAvrOCD and avr-gdb](#3-macos-debugging-with-pyavrocd-and-avr-gdb). (*This approach probably works with Windows as well, I haven't tested it.*)
+* **macOS** - This is my setup, and I use *Sublime Text* to edit the code, **PyAvrOCD** as the *GDB server* along with *avr-gdb*/*gdb-dashboard*. See [macOS: PyAvrOCD and avr-gdb](#3-macos-debugging-with-pyavrocd-and-avr-gdb). (*This approach probably works with Windows as well, I haven't tested it.*)
 
 
 The terminal-based approach of *gdb-dashboard* can be information-rich as it is customizable to the specific registers being used. Very nice output, for example:
@@ -115,9 +117,9 @@ VPORTF.IN  @0x0016 = 0x81
 ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
 ```
 
-### 2. Pure Linux approach
+### 2. Linux GUI approach
 
-Use [Bloom](https://bloom.oscillate.io/) together with [*avr-gdb*](https://www.sourceware.org/gdb/). Bloom acts as the GDB server to the Nano's on-board debugger, letting you load code and inspect the microcontroller's registers and memory; the repo's *bloom.yaml* is already configured for the *AVR64DD32 Curiosity Nano* over *UPDI*. On a Linux desktop you can pair it with Bloom's graphical *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb). 
+**Bloom** has an excellent GUI, *Insight*, for viewing registers and ports, however, it is Linux-only.  On a Linux desktop you can view *Insight* inspector — see [Debugging the AVR64DD32 with Bloom and avr-gdb](#debugging-the-avr64dd32-with-bloom-and-avr-gdb). 
 
 
 ## *avrdude* commands
