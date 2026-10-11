@@ -2,6 +2,8 @@
 ; main  –  Blink the user LED on PF5 at ~7.6 Hz (≈65.5 ms on / 65.5 ms off)
 ; Target : AVR64DD32 @ 4 MHz
 ; Board  : AVR64DD32 Curiosity Nano — LED0 is wired to PF5 (pin 5L)
+; Program is designed to be the most simple version,
+; it does use registers for names and delay macros
 ; =============================================================
 
 #include <avr/io.h>
@@ -24,7 +26,6 @@ reset_handler:                      ; serves as main_setup
 
 main_loop:
     sbi     VPF_IN, LED             ; toggle PF5
-    delay_16   0                    ; @0 delay maximum, 65536 ticks
     delay_16   0                    ; @0 delay maximum, 65536 ticks
     rjmp    main_loop
 .size   reset_handler, .-reset_handler
