@@ -1,5 +1,15 @@
-; asm_oneline.S - ICALL jump table demo for AVR64DD32
-; uses lpm command to load jump table addr from FLASH
+;==============================================================================
+;  oneline.S
+;------------------------------------------------------------------------------
+;  ICALL jump table demo for AVR64DD32 - the most, simple multi-tasker
+;
+;  A very simple task switcher, which outputs its task number
+;  on a specific set of pins. This allows you to view the task
+;  being executed via an oscilloscope.
+;  uses lpm command to load jump table addr from FLASH
+;
+;  to change execution order, adjust the lines in the jump table at the end
+;==============================================================================
 
 #include <avr/io.h>
 #include "registers.S"

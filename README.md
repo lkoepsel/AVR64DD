@@ -552,7 +552,7 @@ PORTF.OUT = 32 (old value was: 0)
 
 For the AVR64DD32 using hexadecimal data, use `tio cnh`, to see ASCII data, use `tio cna`
 
-Similar to `.gdbinit`, save the contents below in your home folder as `.tioconfig`
+**You will need to save the contents below** in your home folder as `.tioconfig`
 ```
 # default is for AVR_C Uno-type boards
 [default]
@@ -587,6 +587,41 @@ baudrate = 9600
 device = /dev/ttyACM0
 baudrate = 9600
 ```
+
+You might have to use `tio -l` to list the serial ports. For example, in *macOS*, I got the following:
+
+```bash
+~/Development/AVR64DD/examples/echo (main) $ tio -l
+Device                           TID     Uptime [s] Driver           Description
+-------------------------------- ---- ------------- ---------------- --------------------------
+/dev/cu.debug-console                    681117.174
+/dev/tty.debug-console                   681117.174
+...
+/dev/cu.usbmodem21202                      4784.174
+/dev/tty.usbmodem21202                      277.759
+
+
+Configuration profiles (/Users/lkoepsel/.tioconfig)
+--------------------------------------------------------------------------------
+acm                 usb                 usb-devices         cnh
+cna
+```
+
+Therefore, I need to change the two lines above for *cnh* and *cna* to:
+```
+# AVR64DD32 boards/circuits, hex output
+[cnh]
+device = /dev/tty.usbmodem21202
+output-mode = hex
+baudrate = 9600
+
+# AVR64DD32 boards/circuits, ascii output
+[cna]
+device = /dev/tty.usbmodem21202
+baudrate = 9600
+```
+
+Also note, the listings of the **Configuration profiles**, if this doesn't appear, it will need to be setup.
 
 ## Sublime Text Requirements
 

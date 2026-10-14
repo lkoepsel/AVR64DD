@@ -86,8 +86,8 @@ init_sysclock_100u:
 __vector_14:
 TCB0_INT_handler:
         in    ISR_3, SREG              ; 1  save flags
-        sts   TCB0_INTFLAGS, capt_14    ; 2  clear CAPT (mask pre-loaded at init)
-        st    X+, task_15              ; 1  save running task to buffer
+        sts   TCB0_INTFLAGS, capt_14   ; 2  clear CAPT (mask pre-loaded at init)
+        st    X+, task_22              ; 1  save running task to buffer
         cpi   tasks_26, lo8(TASKS_EXEC + TASKS_EXEC_SIZE)  ; 1
         brne  lt_buf                   ; 1/2
         ldi   tasks_26, lo8(TASKS_EXEC)     ; 1

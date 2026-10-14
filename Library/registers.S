@@ -42,7 +42,7 @@
 #define delay_19    r19     // used for macro delay_16
 #define temp_20     r20     // used for ldi commands
 #define task_21     r21     // used to save the current task running
-#define temp_22     r22     // TBD
+#define task_22     r22     // TBD
 #define temp_23     r23     // TBD
 #define char_24     r24     // serial: byte to send/receive
 ; free              r25

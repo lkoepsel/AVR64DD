@@ -340,11 +340,11 @@ pin_done:
 
 ;----- get task block ---------------------------------------------------------
         ;----- Y = TASKS + TASKID * SIZE --------------------------------------
-        ; use mul to determine index-> index (temp_22) * SIZE r17 = r0:r1
+        ; use mul to determine index-> index (task_22) * SIZE r17 = r0:r1
 get_block:
         ;----- get next task block for execution ------------------------------
         ldi     temp_17, SIZE
-        mul     temp_22, temp_17
+        mul     task_22, temp_17
         movw    Z_30_lo, r0             ; r30:r31 nth taskblock
         eor     r1,r1                   ; set r1 back to 0
 
@@ -374,64 +374,64 @@ no_char:
 
 task0:
         .equ    t0, 0
-        ldi     temp_22, t0
+        ldi     task_22, t0
         rcall   get_block
-        mov     out_5, temp_22
+        mov     out_5, task_22
         ldd     task_15, Y+TASK_NO
-        ; mov     task_15, temp_22
+        ; mov     task_15, task_22
 
         rcall   echo        
         ret
 task1:
         .equ    t1, 1
-        ldi     temp_22, t1
+        ldi     task_22, t1
         rcall   get_block
-        mov     out_5, temp_22
+        mov     out_5, task_22
         ldd     task_15, Y+TASK_NO
-        ; mov     task_15, temp_22
+        ; mov     task_15, task_22
 
         rcall   ser_out
         ret
 
 task2:
         .equ    t2, 2  
-        ldi     temp_22, t2
+        ldi     task_22, t2
         rcall   get_block
-        mov     out_5, temp_22
+        mov     out_5, task_22
         ldd     task_15, Y+TASK_NO
-        ; mov     task_15, temp_22
+        ; mov     task_15, task_22
 
         rcall   btn_in
         ret
 
 task3:
         .equ    t3, 3
-        ldi     temp_22, t3
+        ldi     task_22, t3
         rcall   get_block
-        mov     out_5, temp_22
+        mov     out_5, task_22
         ldd     task_15, Y+TASK_NO
-        ; mov     task_15, temp_22
+        ; mov     task_15, task_22
 
         rcall   pin_out        
         ret
 task4:
         .equ    t4, 4
-        ldi     temp_22, t4
+        ldi     task_22, t4
         rcall   get_block
-        mov     out_5, temp_22
+        mov     out_5, task_22
         ldd     task_15, Y+TASK_NO
-        ; mov     task_15, temp_22
+        ; mov     task_15, task_22
 
         rcall   pin_out
         ret
 
 task5:
         .equ    t5, 5  
-        ldi     temp_22, t5
+        ldi     task_22, t5
         rcall   get_block
-        mov     out_5, temp_22
+        mov     out_5, task_22
         ldd     task_15, Y+TASK_NO
-        ; mov     task_15, temp_22
+        ; mov     task_15, task_22
 
         rcall   pin_out
         ret

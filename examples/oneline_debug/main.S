@@ -1,7 +1,13 @@
-; asm_oneline_debug.S - ICALL jump table demo for AVR64DD32
-; uses lpm command to load jump table addr from FLASH
-; uses an 100us ISR to write task number to SRAM
-; Use to watch which tasks are executed and for how long
+;==============================================================================
+;  oneline_debug.S
+;------------------------------------------------------------------------------
+;  Adds to the most, simple multi-tasker, by showing execution time and order
+;  via a RAM block
+;  uses an 100us ISR to write task number to SRAM
+;
+;  to change execution order, adjust the lines in the jump table at the end
+;==============================================================================
+
 
 #include <avr/io.h>
 #include "clocks.S"
@@ -37,7 +43,7 @@ __vectors:
 ; r17                           ; temp register
 ; r19:r18                       ; delay register
 ; r20                           ; temp register in task
-; r21                           ; tracks executing task
+; r22                           ; tracks executing task
 ; r27:r26 (X)                   ; pointer to SRAM tasks buffer
 ; ---------- Reserved registers ----------
 ; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
@@ -85,15 +91,15 @@ dispatch:
 
 ; ---- Tasks ----
 task0:
-        ldi     task_21, 0x00
-        mov     out_5, task_21
+        ldi     task_22, 0x00
+        mov     out_5, task_22
         out     VPA_OUT, out_5
         delay_16 time_0
         ret
 
 task1:
-        ldi     task_21, 0x01
-        mov     out_5, task_21
+        ldi     task_22, 0x01
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -101,8 +107,8 @@ task1:
         ret
 
 task2:
-        ldi     task_21, 0x02
-        mov     out_5, task_21
+        ldi     task_22, 0x02
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -110,8 +116,8 @@ task2:
         ret
 
 task3:
-        ldi     task_21, 0x03
-        mov     out_5, task_21
+        ldi     task_22, 0x03
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -119,8 +125,8 @@ task3:
         ret
 
 task4:
-        ldi     task_21, 0x4
-        mov     out_5, task_21
+        ldi     task_22, 0x4
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -128,8 +134,8 @@ task4:
         ret
 
 task5:
-        ldi     task_21, 0x5
-        mov     out_5, task_21
+        ldi     task_22, 0x5
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -137,8 +143,8 @@ task5:
         ret
 
 task6:
-        ldi     task_21, 0x6
-        mov     out_5, task_21
+        ldi     task_22, 0x6
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -146,8 +152,8 @@ task6:
         ret
 
 task7:
-        ldi     task_21, 0x7
-        mov     out_5, task_21
+        ldi     task_22, 0x7
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
