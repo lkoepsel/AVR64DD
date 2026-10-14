@@ -2,6 +2,9 @@
 ; sysclock  –  provides non-blocking 1kHz timer
 ; Target : AVR64DD32 @4MHz
 ; Toolchain: avr-gcc  (GNU AVR toolchain)
+;
+; Adjust Counter to check ticks vs. delay_16
+; see sysclock_timing.md for more information
 ; =============================================================
 
 #include <avr/io.h>
@@ -46,7 +49,7 @@
 ; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
 ; r9:r8     ticks_9_hi/lo - global 16-bit ISR ticks counter — do NOT use elsewhere
 
-.equ    COUNTER, 30000          ; 30,000 @ 4 MHz => ~30 ms delay (~30 ticks)
+.equ    COUNTER, 49775          ; 49775 @ 4 MHz => ~50 ms delay (~50 ticks)
                                 ; window must span many 1 ms ticks or the
                                 ; measured delta reads 0; see sysclock_timing.md
 .equ    HEX_BEG, 0xBB           ; beginning of hex print

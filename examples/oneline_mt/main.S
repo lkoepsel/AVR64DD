@@ -1,4 +1,14 @@
-; asm_oneline_mt.S - ICALL jump table demo for AVR64DD32
+;==============================================================================
+;  oneline_mt.S - INCOMPLETE, NEEDS WORK!!!
+;------------------------------------------------------------------------------
+;  Adds to the most, simple multi-tasker, by showing execution time and order
+;  via a RAM block
+;  uses an 100us ISR to write task number to SRAM
+;  uses an 25ms ISR to write task number to console
+;
+;  to change execution order, adjust the lines in the jump table at the end
+;==============================================================================
+; oneline_mt.S - ICALL jump table demo for AVR64DD32
 ; uses lpm command to load jump table addr from FLASH
 ; uses an 100us ISR to write task number to SRAM
 ; uses an 25ms ISR to write ticks to console
@@ -40,7 +50,7 @@ __vectors:
 ; r17                           ; temp register
 ; r19:r18                       ; delay register
 ; r20                           ; temp register in task
-; r21                           ; tracks executing task
+; r22                           ; tracks executing task
 ; r27:r26 (X)                   ; stack init and pointer to SRAM tasks buffer
 ; ---------- Reserved registers ----------
 ; r2        ISR_2 - ISR scratch (STATUS save) — do NOT use elsewhere
@@ -71,7 +81,7 @@ clear_mem:
         ldi     temp_16, 0x1c
         out     VPA_DIR, temp_16        ; PA2-4 outputs
 
-        rcall   set_16M                 ; 16Mhz clock, 62.5ns clock cycle
+        ; rcall   set_16M                 ; 16Mhz clock, 62.5ns clock cycle
         rcall   init_sysclock_100u      ; setup ISR to track tasks running
         rcall   init_sysclock_4k        ; setup ISR for task timing
         rcall   init_serial             ; setup serial console
@@ -119,11 +129,11 @@ dispatch:
 ; * if true, change state
 ; * exit
 task0:
-        .equ    t0, 1        
+        .equ    t0, 30        
         ldi     YL, lo8(task_stacks + (t0 * STACK_SIZE))
         ldi     YH, hi8(task_stacks + (t0 * STACK_SIZE))
-        ldi     task_21, t0 - 1
-        mov     out_5, task_21
+        ldi     task_22, t0
+        mov     out_5, task_22
         out     VPA_OUT, out_5
         delay_16 time_0
         rcall   ticks
@@ -131,11 +141,11 @@ task0:
         ret
 
 task1:
-        .equ    t1, 2        
+        .equ    t1, 31        
         ldi     YL, lo8(task_stacks + (t1 * STACK_SIZE))
         ldi     YH, hi8(task_stacks + (t1 * STACK_SIZE))
-        ldi     task_21, t1 - 1
-        mov     out_5, task_21
+        ldi     task_22, t1
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -146,8 +156,8 @@ task2:
         .equ    t2, 3        
         ldi     YL, lo8(task_stacks + (t2 * STACK_SIZE))
         ldi     YH, hi8(task_stacks + (t2 * STACK_SIZE))
-        ldi     task_21, t2 - 1
-        mov     out_5, task_21
+        ldi     task_22, t2 - 1
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -158,8 +168,8 @@ task3:
         .equ    t3, 4        
         ldi     YL, lo8(task_stacks + (t3 * STACK_SIZE))
         ldi     YH, hi8(task_stacks + (t3 * STACK_SIZE))
-        ldi     task_21, t3 - 1
-        mov     out_5, task_21
+        ldi     task_22, t3 - 1
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -170,8 +180,8 @@ task4:
         .equ    t4, 5        
         ldi     YL, lo8(task_stacks + (t4 * STACK_SIZE))
         ldi     YH, hi8(task_stacks + (t4 * STACK_SIZE))
-        ldi     task_21, t4 - 1
-        mov     out_5, task_21
+        ldi     task_22, t4 - 1
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -182,8 +192,8 @@ task5:
         .equ    t5, 6        
         ldi     YL, lo8(task_stacks + (t5 * STACK_SIZE))
         ldi     YH, hi8(task_stacks + (t5 * STACK_SIZE))
-        ldi     task_21, t5 - 1
-        mov     out_5, task_21
+        ldi     task_22, t5 - 1
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -194,8 +204,8 @@ task6:
         .equ    t6, 7       
         ldi     YL, lo8(task_stacks + (t6 * STACK_SIZE))
         ldi     YH, hi8(task_stacks + (t6 * STACK_SIZE))
-        ldi     task_21, t6 - 1
-        mov     out_5, task_21
+        ldi     task_22, t6 - 1
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5
@@ -206,8 +216,8 @@ task7:
         .equ    t7, 8       
         ldi     YL, lo8(task_stacks + (t7 * STACK_SIZE))
         ldi     YH, hi8(task_stacks + (t7 * STACK_SIZE))
-        ldi     task_21, t7 - 1
-        mov     out_5, task_21
+        ldi     task_22, t7 - 1
+        mov     out_5, task_22
         lsl     out_5
         lsl     out_5
         out     VPA_OUT, out_5

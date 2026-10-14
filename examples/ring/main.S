@@ -1,5 +1,5 @@
 ; =============================================================
-; ring  –  example serial program, echo's serial input
+; ring  –  same as echo, however, uses ISR and ring buffer
 ; Interrupt-driven version of examples/echo: same behaviour, but the
 ; characters move through the ring buffers in serial_ISR.S instead of
 ; the polling loops in serial.S. The echo loop below only touches the

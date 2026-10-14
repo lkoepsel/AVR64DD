@@ -3,6 +3,7 @@
 ;------------------------------------------------------------------------------
 ;  Adds to the most, simple multi-tasker, by showing execution time and order
 ;  via a RAM block
+;  displays task number on 3 pins for oscilloscope (see images in folder)
 ;  uses an 100us ISR to write task number to SRAM
 ;
 ;  to change execution order, adjust the lines in the jump table at the end
