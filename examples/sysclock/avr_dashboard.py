@@ -27,7 +27,11 @@ AVR_PERIPHERALS = [
 # (WGMODE / CLKSEL are multi-bit fields, so read those from the hex value.)
 AVR_BITFIELDS = {
     "TCA0.CTRLA": [(0, "ENABLE")],
-    "TCA0.CTRLB": [(6, "CMP2EN"), (5, "CMP1EN"), (4, "CMP0EN")],
+    "TCA0.CTRLB": [
+    (6, "CMP2EN"), 
+    (5, "CMP1EN"),
+    (4, "CMP0EN")
+    ],
     "TCA0.INTCTRL":  [(0, "OVF")],
     "TCA0.INTFLAGS": [(0, "OVF")],
 }
